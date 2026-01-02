@@ -306,8 +306,11 @@ gr8hopper/
 │   │   ├── adapter.ts        # Storage interface
 │   │   ├── kv.ts             # Cloudflare KV adapter
 │   │   └── json-file.ts      # JSON file adapter
-│   └── middleware/
-│       └── auth.ts           # Basic auth
+│   ├── middleware/
+│   │   └── auth.ts           # Basic auth
+│   └── utils/
+│       ├── sanitize.ts       # Route ID sanitization
+│       └── validation.ts     # URL and config validation
 ├── wrangler.toml.example     # Cloudflare config template (copy to wrangler.toml)
 ├── wrangler.production.toml.example  # Production config template
 ├── routes.json               # Local routes (VPS mode)

@@ -588,9 +588,95 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       background: var(--border);
       margin: 24px 0;
     }
+
+    /* Toast Notifications */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 400px;
+    }
+
+    .toast {
+      padding: 14px 18px;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      font-size: 14px;
+      line-height: 1.5;
+      animation: toastIn 0.3s ease;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .toast.success {
+      background: var(--primary-light);
+      color: var(--primary-hover);
+      border: 1px solid var(--primary);
+    }
+
+    .toast.error {
+      background: var(--danger-light);
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    .toast-icon {
+      flex-shrink: 0;
+      font-size: 16px;
+    }
+
+    .toast-message {
+      flex: 1;
+    }
+
+    .toast-close {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      color: inherit;
+      opacity: 0.6;
+      cursor: pointer;
+      padding: 0;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .toast-close:hover {
+      opacity: 1;
+    }
+
+    .toast.hiding {
+      animation: toastOut 0.2s ease forwards;
+    }
+
+    @keyframes toastIn {
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes toastOut {
+      to {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+    }
   </style>
 </head>
 <body>
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
   <div class="container">
     <!-- Header -->
     <header class="header">
@@ -806,6 +892,42 @@ export function getAdminHtml(basePath: string = '/admin'): string {
   <script>
     const API_BASE = ${JSON.stringify(basePath)};
     let currentRouteParam = 'r'; // Will be updated from settings
+
+    // Toast notification system (replaces disruptive alert() calls)
+    function showToast(message, type = 'success', duration = 5000) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast ' + type;
+
+      const icon = document.createElement('span');
+      icon.className = 'toast-icon';
+      icon.textContent = type === 'success' ? '\\u2713' : '\\u2717';
+      toast.appendChild(icon);
+
+      const msg = document.createElement('span');
+      msg.className = 'toast-message';
+      msg.textContent = message;
+      toast.appendChild(msg);
+
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'toast-close';
+      closeBtn.innerHTML = '&times;';
+      closeBtn.addEventListener('click', () => removeToast(toast));
+      toast.appendChild(closeBtn);
+
+      container.appendChild(toast);
+
+      // Auto-remove after duration
+      if (duration > 0) {
+        setTimeout(() => removeToast(toast), duration);
+      }
+    }
+
+    function removeToast(toast) {
+      if (!toast.parentNode) return;
+      toast.classList.add('hiding');
+      setTimeout(() => toast.remove(), 200);
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
       loadSettings().then(() => loadRoutes()); // Load settings first to get route_param
@@ -1105,7 +1227,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         const route = await res.json();
         openModal(route);
       } catch (err) {
-        alert('Failed to load redirect');
+        showToast('Failed to load redirect', 'error');
       }
     }
 
@@ -1115,12 +1237,12 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         const response = await fetch(API_BASE + '/routes/' + encodeURIComponent(id), { method: 'DELETE' });
         if (!response.ok) {
           const err = await response.json().catch(() => ({}));
-          alert('Failed to delete redirect: ' + (err.error || 'Unknown error'));
+          showToast('Failed to delete redirect: ' + (err.error || 'Unknown error'), 'error');
           return;
         }
         loadRoutes();
       } catch (err) {
-        alert('Failed to delete redirect');
+        showToast('Failed to delete redirect', 'error');
       }
     }
 
@@ -1207,7 +1329,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         const data = await res.json();
 
         if (!res.ok) {
-          alert('Error: ' + (data.error || 'Failed to purge cache'));
+          showToast('Error: ' + (data.error || 'Failed to purge cache'), 'error');
           return;
         }
 
@@ -1221,7 +1343,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         setTimeout(() => successMsg.remove(), 3000);
       } catch (err) {
         console.error('Failed to purge cache:', err);
-        alert('Failed to purge cache');
+        showToast('Failed to purge cache', 'error');
       } finally {
         btn.textContent = originalText;
         btn.disabled = false;
@@ -1257,7 +1379,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         URL.revokeObjectURL(url);
       } catch (err) {
         console.error('Export failed:', err);
-        alert('Failed to export configuration');
+        showToast('Failed to export configuration', 'error');
       } finally {
         btnText.textContent = originalText;
         btn.disabled = false;
@@ -1271,7 +1393,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       // Limit file size to 10MB
       const MAX_FILE_SIZE = 10 * 1024 * 1024;
       if (file.size > MAX_FILE_SIZE) {
-        alert('File too large. Maximum size: 10MB');
+        showToast('File too large. Maximum size: 10MB', 'error');
         e.target.value = '';
         return;
       }
@@ -1280,7 +1402,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
 
       reader.onerror = function() {
         console.error('Failed to read file:', reader.error);
-        alert('Failed to read file: ' + (reader.error?.message || 'Unknown error'));
+        showToast('Failed to read file: ' + (reader.error?.message || 'Unknown error'), 'error');
         e.target.value = '';
       };
 
@@ -1289,13 +1411,13 @@ export function getAdminHtml(basePath: string = '/admin'): string {
           const data = JSON.parse(event.target.result);
 
           if (!data.routes || typeof data.routes !== 'object') {
-            alert('Invalid file format: missing routes object');
+            showToast('Invalid file format: missing routes object', 'error');
             return;
           }
 
           const routeCount = Object.keys(data.routes).length;
           if (routeCount === 0) {
-            alert('Import file contains no routes');
+            showToast('Import file contains no routes', 'error');
             return;
           }
 
@@ -1310,7 +1432,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
           document.getElementById('import-modal').style.display = 'flex';
         } catch (err) {
           console.error('Failed to parse JSON:', err);
-          alert('Invalid JSON file: ' + (err.message || 'Parse error'));
+          showToast('Invalid JSON file: ' + (err.message || 'Parse error'), 'error');
         }
       };
       reader.readAsText(file);
@@ -1343,7 +1465,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
 
         if (!res.ok) {
           closeImportModal();
-          alert('Import failed: ' + (result.error || 'Unknown error'));
+          showToast('Import failed: ' + (result.error || 'Unknown error'), 'error');
           return;
         }
 
@@ -1352,11 +1474,11 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         loadSettings();
 
         // Show success message
-        alert('Successfully imported ' + result.imported + ' routes');
+        showToast('Successfully imported ' + result.imported + ' routes', 'success');
       } catch (err) {
         console.error('Import failed:', err);
         closeImportModal();
-        alert('Failed to import configuration: ' + (err.message || 'Network error'));
+        showToast('Failed to import configuration: ' + (err.message || 'Network error'), 'error');
       } finally {
         btn.textContent = originalText;
         btn.disabled = false;

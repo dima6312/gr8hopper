@@ -3,104 +3,7 @@ import type { StorageAdapter } from '../storage/adapter.js'
 import type { RouteConfig, GlobalSettings } from '../types.js'
 import { basicAuth, type AuthConfig } from '../middleware/auth.js'
 import { sanitizeRouteId } from '../utils/sanitize.js'
-
-/**
- * Allowed URL schemes for template URLs
- */
-const ALLOWED_URL_SCHEMES = ['http:', 'https:']
-
-/**
- * Dangerous URL schemes that should be blocked
- */
-const DANGEROUS_SCHEMES = [
-  'javascript:', 'data:', 'vbscript:', 'file:',
-  'about:', 'blob:', 'filesystem:'
-]
-
-/**
- * Maximum allowed URL length to prevent abuse
- */
-const MAX_URL_LENGTH = 2048
-
-/**
- * Validate URL scheme is safe (http or https only).
- * Blocks dangerous schemes and control character injection.
- */
-function isValidUrlScheme(url: string): boolean {
-  // Remove control characters (null bytes, newlines, etc.) to prevent injection
-  const sanitized = url.replace(/[\x00-\x1F\x7F]/g, '')
-
-  // Enforce maximum URL length
-  if (sanitized.length > MAX_URL_LENGTH) {
-    return false
-  }
-
-  try {
-    const parsed = new URL(sanitized)
-    return ALLOWED_URL_SCHEMES.includes(parsed.protocol)
-  } catch {
-    // For template URLs with placeholders, check for dangerous schemes
-    const lowercaseUrl = sanitized.toLowerCase().trim()
-
-    // Block all dangerous schemes
-    if (DANGEROUS_SCHEMES.some(scheme => lowercaseUrl.startsWith(scheme))) {
-      return false
-    }
-
-    // Block protocol-relative URLs for defense in depth
-    if (lowercaseUrl.startsWith('//')) {
-      return false
-    }
-
-    // Allow relative paths and templates with {placeholders}
-    return true
-  }
-}
-
-/**
- * Validate route configuration
- */
-function validateRouteConfig(config: unknown): RouteConfig | null {
-  if (!config || typeof config !== 'object') return null
-
-  const c = config as Record<string, unknown>
-
-  if (typeof c.template !== 'string' || !c.template.trim()) return null
-  if (typeof c.active !== 'boolean') return null
-
-  // Validate URL scheme for template
-  if (!isValidUrlScheme(c.template)) {
-    return null
-  }
-
-  return {
-    template: c.template.trim(),
-    active: c.active
-  }
-}
-
-/**
- * Validate global settings
- */
-function validateSettings(settings: unknown): GlobalSettings | null {
-  if (!settings || typeof settings !== 'object') return null
-
-  const s = settings as Record<string, unknown>
-
-  if (typeof s.fallback_url !== 'string') return null
-  if (typeof s.cache_ttl !== 'number' || s.cache_ttl < 0) return null
-  if (typeof s.route_param !== 'string' || !s.route_param.trim()) return null
-
-  // Sanitize route_param to alphanumeric only
-  const routeParam = s.route_param.trim().replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
-  if (!routeParam) return null
-
-  return {
-    fallback_url: s.fallback_url,
-    cache_ttl: s.cache_ttl,
-    route_param: routeParam
-  }
-}
+import { validateRouteConfig, validateSettings } from '../utils/validation.js'
 
 export interface CloudflareConfig {
   apiToken?: string
@@ -357,18 +260,15 @@ export function createAdminHandler(options: AdminHandlerOptions) {
       }))
       const settingsBackup = { ...existingSettings }
 
-      // Helper function to restore route backup
-      const restoreRouteBackup = async (): Promise<string[]> => {
-        const failedRestores: string[] = []
-        for (const { id, config } of routeBackup) {
-          try {
-            await storage.setRoute(id, config)
-          } catch (rollbackError) {
-            console.error(`[Admin] Rollback failed for route ${id}:`, rollbackError)
-            failedRestores.push(id)
-          }
+      // Helper function to restore route backup using bulk operation
+      const restoreRouteBackup = async (): Promise<boolean> => {
+        try {
+          await storage.setRoutes(routeBackup, true)
+          return true
+        } catch (rollbackError) {
+          console.error('[Admin] Failed to restore route backup:', rollbackError)
+          return false
         }
-        return failedRestores
       }
 
       // Helper function to restore settings backup
@@ -382,49 +282,18 @@ export function createAdminHandler(options: AdminHandlerOptions) {
         }
       }
 
-      // Helper function to delete routes (for cleanup during rollback)
-      const deleteRoutes = async (routes: Array<{ id: string }>): Promise<void> => {
-        for (const { id } of routes) {
-          try {
-            await storage.deleteRoute(id)
-          } catch (deleteError) {
-            // Log but continue - best effort cleanup during rollback
-            console.error(`[Admin] Rollback cleanup: failed to delete route ${id}:`, deleteError)
-          }
-        }
-      }
-
-      // Delete all existing routes (with rollback on failure)
+      // Import all routes at once using bulk operation (more efficient)
       try {
-        for (const route of existingRoutes) {
-          await storage.deleteRoute(route.id)
-        }
-      } catch (deleteError) {
-        console.error('[Admin] Delete failed mid-operation, attempting rollback:', deleteError)
-        const failedRestores = await restoreRouteBackup()
-        const rollbackStatus = failedRestores.length > 0
-          ? ` Failed to restore routes: ${failedRestores.join(', ')}.`
-          : ' Previous routes restored successfully.'
-        return c.json({
-          error: `Failed to clear existing routes.${rollbackStatus} Please verify your configuration.`
-        }, 500)
-      }
-
-      // Import new routes with rollback on failure
-      try {
-        for (const { id, config } of validatedRoutes) {
-          await storage.setRoute(id, config)
-        }
+        await storage.setRoutes(validatedRoutes, true) // clearExisting=true replaces all routes
       } catch (importError) {
-        // ROLLBACK: First delete any partially imported routes, then restore backup
-        console.error('[Admin] Import failed mid-operation, attempting rollback:', importError)
-        await deleteRoutes(validatedRoutes)
-        const failedRestores = await restoreRouteBackup()
-        const rollbackStatus = failedRestores.length > 0
-          ? ` Failed to restore routes: ${failedRestores.join(', ')}.`
-          : ' Previous routes restored successfully.'
+        // ROLLBACK: Restore original routes
+        console.error('[Admin] Import failed, attempting rollback:', importError)
+        const routesRestored = await restoreRouteBackup()
+        const rollbackStatus = routesRestored
+          ? ' Previous routes restored successfully.'
+          : ' Failed to restore previous routes.'
         return c.json({
-          error: `Import failed mid-operation.${rollbackStatus} Please verify your configuration.`
+          error: `Import failed.${rollbackStatus} Please verify your configuration.`
         }, 500)
       }
 
@@ -433,14 +302,11 @@ export function createAdminHandler(options: AdminHandlerOptions) {
         try {
           await storage.setSettings(validatedSettings)
         } catch (settingsError) {
-          // ROLLBACK: Delete newly imported routes, restore route backup, restore settings backup
+          // ROLLBACK: Restore original routes and settings
           console.error('[Admin] Settings import failed, rolling back:', settingsError)
-          await deleteRoutes(validatedRoutes)
-          const failedRestores = await restoreRouteBackup()
+          const routesRestored = await restoreRouteBackup()
           const settingsRestored = await restoreSettingsBackup()
-          const routeStatus = failedRestores.length > 0
-            ? ` Failed to restore routes: ${failedRestores.join(', ')}.`
-            : ' Routes restored.'
+          const routeStatus = routesRestored ? ' Routes restored.' : ' Failed to restore routes.'
           const settingsStatus = settingsRestored ? ' Settings restored.' : ' Failed to restore settings.'
           return c.json({
             error: `Settings import failed.${routeStatus}${settingsStatus} Please verify your configuration.`

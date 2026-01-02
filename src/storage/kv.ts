@@ -92,4 +92,51 @@ export class KVAdapter implements StorageAdapter {
     // Invalidate cache on update
     this.settingsCache = null
   }
+
+  async setRoutes(routes: Array<{ id: string; config: RouteConfig }>, clearExisting = false): Promise<void> {
+    if (clearExisting) {
+      // Get current routes and delete them first
+      const existingIndex = (await this.kv.get<string[]>(ROUTE_INDEX_KEY, 'json')) || []
+      if (existingIndex.length > 0) {
+        await Promise.all(
+          existingIndex.map(id => this.kv.delete(`${ROUTE_PREFIX}${id}`))
+        )
+      }
+    }
+
+    // Write all new routes in parallel
+    await Promise.all(
+      routes.map(({ id, config }) =>
+        this.kv.put(`${ROUTE_PREFIX}${id}`, JSON.stringify(config))
+      )
+    )
+
+    // Build new index - if clearExisting, just use new route IDs; otherwise merge
+    let newIndex: string[]
+    if (clearExisting) {
+      newIndex = routes.map(r => r.id)
+    } else {
+      const existingIndex = (await this.kv.get<string[]>(ROUTE_INDEX_KEY, 'json')) || []
+      const newIds = new Set(routes.map(r => r.id))
+      // Keep existing IDs that aren't being replaced, add new IDs
+      newIndex = [...existingIndex.filter(id => !newIds.has(id)), ...routes.map(r => r.id)]
+    }
+
+    await this.kv.put(ROUTE_INDEX_KEY, JSON.stringify(newIndex))
+  }
+
+  async deleteRoutes(ids: string[]): Promise<void> {
+    if (ids.length === 0) return
+
+    // Delete all routes in parallel
+    await Promise.all(
+      ids.map(id => this.kv.delete(`${ROUTE_PREFIX}${id}`))
+    )
+
+    // Update the index
+    const existingIndex = (await this.kv.get<string[]>(ROUTE_INDEX_KEY, 'json')) || []
+    const idsToDelete = new Set(ids)
+    const newIndex = existingIndex.filter(id => !idsToDelete.has(id))
+    await this.kv.put(ROUTE_INDEX_KEY, JSON.stringify(newIndex))
+  }
 }

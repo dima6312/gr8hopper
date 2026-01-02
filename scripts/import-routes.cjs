@@ -2,11 +2,19 @@
 /**
  * Import routes.json to Cloudflare KV
  * Usage: npm run import:routes [path/to/routes.json] [--local]
+ *
+ * NOTE: Validation logic (sanitizeRouteId, isValidUrlScheme, validateRouteConfig,
+ * validateSettings, DANGEROUS_SCHEMES) is intentionally duplicated here from
+ * src/utils/validation.ts and src/utils/sanitize.ts. This script is CommonJS
+ * for standalone execution without a build step, while the main codebase uses
+ * ES modules. Keeping validation logic inline ensures the script works
+ * independently without requiring module bundling.
  */
 
 const fs = require('fs')
 const path = require('path')
 const { execFileSync } = require('child_process')
+const TOML = require('@iarna/toml')
 
 // Parse arguments
 const args = process.argv.slice(2)
@@ -216,33 +224,48 @@ if (validationErrors.length > 0) {
 
 console.log(green(`✓ All ${sanitizedRoutes.length} routes validated\n`))
 
-// Get KV namespace ID from wrangler.toml
+// Get KV namespace ID from wrangler.toml using proper TOML parsing
 let namespaceId
 let configUsed
 try {
   // Try production config first, then regular
   const configFiles = ['wrangler.production.toml', 'wrangler.toml']
-  let configContent = null
+  let config = null
 
   for (const configFile of configFiles) {
     const configPath = path.join(process.cwd(), configFile)
     if (fs.existsSync(configPath)) {
-      configContent = fs.readFileSync(configPath, 'utf-8')
-      configUsed = configFile
-      break
+      const configContent = fs.readFileSync(configPath, 'utf-8')
+      try {
+        config = TOML.parse(configContent)
+        configUsed = configFile
+        break
+      } catch (parseErr) {
+        console.error(yellow(`Warning: Failed to parse ${configFile}: ${parseErr.message}`))
+        // Continue to next config file
+      }
     }
   }
 
-  if (!configContent) {
-    throw new Error('No wrangler config found')
+  if (!config) {
+    throw new Error('No valid wrangler config found')
   }
 
-  // Extract KV namespace ID (simple regex, works for most cases)
-  const match = configContent.match(/\[\[kv_namespaces\]\][\s\S]*?id\s*=\s*"([^"]+)"/)
-  if (!match || match[1] === 'your-kv-namespace-id') {
+  // Extract KV namespace ID from parsed config
+  const kvNamespaces = config.kv_namespaces
+  if (!kvNamespaces || !Array.isArray(kvNamespaces) || kvNamespaces.length === 0) {
+    throw new Error('No kv_namespaces configured in wrangler config')
+  }
+
+  namespaceId = kvNamespaces[0].id
+  if (!namespaceId || namespaceId === 'your-kv-namespace-id') {
     throw new Error('KV namespace ID not configured in wrangler config')
   }
-  namespaceId = match[1]
+
+  // Validate namespace ID format (should be 32 hex characters)
+  if (!/^[a-f0-9]{32}$/i.test(namespaceId)) {
+    console.log(yellow(`Warning: Namespace ID doesn't match expected format (32 hex chars)`))
+  }
 } catch (err) {
   console.error(red(`Error: ${err.message}`))
   console.log(`\nMake sure your wrangler.toml or wrangler.production.toml has a valid KV namespace ID`)
