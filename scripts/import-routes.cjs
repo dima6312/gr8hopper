@@ -171,6 +171,7 @@ console.log(`🎯 Target: ${isLocal ? yellow('Local KV') : green('Production KV'
 console.log('🔍 Validating routes...')
 const validationErrors = []
 const sanitizedRoutes = []
+const seenIds = new Map() // sanitizedId -> originalId
 
 for (const id of routeIds) {
   const sanitizedId = sanitizeRouteId(id)
@@ -179,6 +180,14 @@ for (const id of routeIds) {
     validationErrors.push(`  - "${id}": Invalid route ID (must contain letters, numbers, or hyphens)`)
     continue
   }
+
+  // Check for ID collisions after sanitization
+  const existingOriginal = seenIds.get(sanitizedId)
+  if (existingOriginal) {
+    validationErrors.push(`  - "${id}": Collision with "${existingOriginal}" (both become "${sanitizedId}")`)
+    continue
+  }
+  seenIds.set(sanitizedId, id)
 
   if (sanitizedId !== id) {
     console.log(yellow(`  ⚠ Route ID "${id}" sanitized to "${sanitizedId}"`))
@@ -289,7 +298,9 @@ const wranglerArgs = [
   `--namespace-id=${namespaceId}`
 ]
 
-if (!isLocal) {
+if (isLocal) {
+  wranglerArgs.push('--local')
+} else {
   wranglerArgs.push('--remote')
 }
 

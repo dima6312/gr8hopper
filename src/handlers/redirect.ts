@@ -17,7 +17,16 @@ function substituteTemplate(
 }
 
 /**
+ * Dangerous URL schemes that must be blocked (security)
+ */
+const DANGEROUS_SCHEMES = [
+  'javascript:', 'data:', 'vbscript:', 'file:',
+  'about:', 'blob:', 'filesystem:'
+]
+
+/**
  * Ensure URL has a protocol. Adds https:// only if URL looks like a domain.
+ * Blocks dangerous schemes (javascript:, data:, etc.) for security.
  * Handles edge cases: empty strings, relative paths, protocol-relative URLs.
  */
 function ensureProtocol(url: string): string {
@@ -28,8 +37,17 @@ function ensureProtocol(url: string): string {
     return url
   }
 
-  // Case-insensitive protocol check - already has protocol
   const lower = trimmed.toLowerCase()
+
+  // SECURITY: Block dangerous URL schemes (could be injected via query params)
+  for (const scheme of DANGEROUS_SCHEMES) {
+    if (lower.startsWith(scheme)) {
+      // Return safe fallback - will show "Route not found" to user
+      return ''
+    }
+  }
+
+  // Case-insensitive protocol check - already has http(s) protocol
   if (lower.startsWith('http://') || lower.startsWith('https://')) {
     return trimmed
   }
@@ -44,13 +62,22 @@ function ensureProtocol(url: string): string {
     return `https:${trimmed}`
   }
 
-  // Heuristic: if first segment looks like a domain (contains dot, but not . or ..)
+  // Heuristic: if first segment looks like a domain, prepend https://
+  // Domain pattern: contains dot, has alphanumeric before dot, ends with 2+ letter TLD
   // e.g., "example.com/path" -> prepend https://
   // e.g., "page/{id}" -> leave as-is (relative path)
   // e.g., "./file" or "../path" -> leave as-is (relative navigation)
+  // e.g., "page.html" or "report.pdf" -> leave as-is (filename, not domain)
   const firstSegment = trimmed.split('/')[0]
   if (firstSegment.includes('.') && !firstSegment.startsWith('.')) {
-    return `https://${trimmed}`
+    // Check if it looks like a domain (TLD has 2+ letters at the end)
+    // This avoids treating "page.html" or "file.1" as domains
+    const parts = firstSegment.split('.')
+    const lastPart = parts[parts.length - 1]
+    // TLD must be 2+ alphabetic characters (com, org, co, uk, etc.)
+    if (lastPart.length >= 2 && /^[a-zA-Z]+$/.test(lastPart)) {
+      return `https://${trimmed}`
+    }
   }
 
   // Relative path - leave as-is for browser to resolve
@@ -114,7 +141,13 @@ export function createRedirectHandler(options: RedirectHandlerOptions) {
 
     // Build target URL (missing placeholders are left as-is)
     // Ensure protocol is present (add https:// if missing)
+    // ensureProtocol returns empty string for dangerous schemes (security)
     const targetUrl = ensureProtocol(substituteTemplate(route.template, allParams))
+
+    // If URL was blocked (dangerous scheme), use fallback
+    if (!targetUrl) {
+      return handleFallback(c, settings, c.req.queries())
+    }
 
     // Return 301 redirect with aggressive cache headers
     const cacheHeaders = buildCacheHeaders(settings.cache_ttl)

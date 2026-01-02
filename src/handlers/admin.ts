@@ -309,11 +309,22 @@ export function createAdminHandler(options: AdminHandlerOptions) {
 
       // Validate all routes before importing
       const validatedRoutes: Array<{ id: string; config: RouteConfig }> = []
+      const seenIds = new Map<string, string>() // sanitizedId -> originalId
+
       for (const id of routeIds) {
         const sanitizedId = sanitizeRouteId(id)
         if (!sanitizedId) {
           return c.json({ error: `Invalid route ID: "${id}". IDs must contain only letters, numbers, and hyphens.` }, 400)
         }
+
+        // Check for ID collisions after sanitization
+        const existingOriginal = seenIds.get(sanitizedId)
+        if (existingOriginal) {
+          return c.json({
+            error: `Route ID collision: "${id}" and "${existingOriginal}" both sanitize to "${sanitizedId}". Please use unique IDs.`
+          }, 400)
+        }
+        seenIds.set(sanitizedId, id)
 
         const config = validateRouteConfig(routesObj[id])
         if (!config) {
@@ -337,17 +348,19 @@ export function createAdminHandler(options: AdminHandlerOptions) {
         }
       }
 
-      // BACKUP: Save existing routes before deletion for rollback
+      // BACKUP: Save existing routes and settings before any changes for rollback
       const existingRoutes = await storage.getAllRoutes()
-      const backup = existingRoutes.map(r => ({
+      const existingSettings = await storage.getSettings()
+      const routeBackup = existingRoutes.map(r => ({
         id: r.id,
         config: { template: r.template, active: r.active }
       }))
+      const settingsBackup = { ...existingSettings }
 
-      // Helper function to restore backup
-      const restoreBackup = async (): Promise<string[]> => {
+      // Helper function to restore route backup
+      const restoreRouteBackup = async (): Promise<string[]> => {
         const failedRestores: string[] = []
-        for (const { id, config } of backup) {
+        for (const { id, config } of routeBackup) {
           try {
             await storage.setRoute(id, config)
           } catch (rollbackError) {
@@ -356,6 +369,17 @@ export function createAdminHandler(options: AdminHandlerOptions) {
           }
         }
         return failedRestores
+      }
+
+      // Helper function to restore settings backup
+      const restoreSettingsBackup = async (): Promise<boolean> => {
+        try {
+          await storage.setSettings(settingsBackup)
+          return true
+        } catch (rollbackError) {
+          console.error('[Admin] Failed to restore settings backup:', rollbackError)
+          return false
+        }
       }
 
       // Helper function to delete routes (for cleanup during rollback)
@@ -377,7 +401,7 @@ export function createAdminHandler(options: AdminHandlerOptions) {
         }
       } catch (deleteError) {
         console.error('[Admin] Delete failed mid-operation, attempting rollback:', deleteError)
-        const failedRestores = await restoreBackup()
+        const failedRestores = await restoreRouteBackup()
         const rollbackStatus = failedRestores.length > 0
           ? ` Failed to restore routes: ${failedRestores.join(', ')}.`
           : ' Previous routes restored successfully.'
@@ -395,7 +419,7 @@ export function createAdminHandler(options: AdminHandlerOptions) {
         // ROLLBACK: First delete any partially imported routes, then restore backup
         console.error('[Admin] Import failed mid-operation, attempting rollback:', importError)
         await deleteRoutes(validatedRoutes)
-        const failedRestores = await restoreBackup()
+        const failedRestores = await restoreRouteBackup()
         const rollbackStatus = failedRestores.length > 0
           ? ` Failed to restore routes: ${failedRestores.join(', ')}.`
           : ' Previous routes restored successfully.'
@@ -409,15 +433,17 @@ export function createAdminHandler(options: AdminHandlerOptions) {
         try {
           await storage.setSettings(validatedSettings)
         } catch (settingsError) {
-          // ROLLBACK: Delete newly imported routes, then restore backup
-          console.error('[Admin] Settings import failed, rolling back routes:', settingsError)
+          // ROLLBACK: Delete newly imported routes, restore route backup, restore settings backup
+          console.error('[Admin] Settings import failed, rolling back:', settingsError)
           await deleteRoutes(validatedRoutes)
-          const failedRestores = await restoreBackup()
-          const rollbackStatus = failedRestores.length > 0
+          const failedRestores = await restoreRouteBackup()
+          const settingsRestored = await restoreSettingsBackup()
+          const routeStatus = failedRestores.length > 0
             ? ` Failed to restore routes: ${failedRestores.join(', ')}.`
-            : ' Previous routes restored successfully.'
+            : ' Routes restored.'
+          const settingsStatus = settingsRestored ? ' Settings restored.' : ' Failed to restore settings.'
           return c.json({
-            error: `Settings import failed.${rollbackStatus} Please verify your configuration.`
+            error: `Settings import failed.${routeStatus}${settingsStatus} Please verify your configuration.`
           }, 500)
         }
       }
