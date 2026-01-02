@@ -30,6 +30,14 @@ export type ValidationResult =
   | { valid: false; reason: string }
 
 /**
+ * Sanitize URL by removing control characters that could enable HTTP header injection.
+ * Must be applied before storing URLs to prevent CRLF injection attacks.
+ */
+export function sanitizeUrl(url: string): string {
+  return url.replace(/[\x00-\x1F\x7F]/g, '').trim()
+}
+
+/**
  * Validate URL scheme is safe (http or https only).
  * Blocks dangerous schemes and control character injection.
  * Returns detailed validation result for error reporting.
@@ -82,14 +90,18 @@ export function validateRouteConfig(config: unknown): RouteConfig | null {
   if (typeof c.template !== 'string' || !c.template.trim()) return null
   if (typeof c.active !== 'boolean') return null
 
+  // Sanitize template to remove control characters (prevents CRLF injection)
+  const template = sanitizeUrl(c.template)
+  if (!template) return null
+
   // Validate URL scheme for template
-  const schemeCheck = isValidUrlScheme(c.template)
+  const schemeCheck = isValidUrlScheme(template)
   if (!schemeCheck.valid) {
     return null
   }
 
   return {
-    template: c.template.trim(),
+    template,
     active: c.active
   }
 }
@@ -113,14 +125,20 @@ export function validateRouteConfigWithReason(config: unknown): { config: RouteC
     return { config: null, reason: 'Active must be a boolean' }
   }
 
-  const schemeCheck = isValidUrlScheme(c.template)
+  // Sanitize template to remove control characters (prevents CRLF injection)
+  const template = sanitizeUrl(c.template)
+  if (!template) {
+    return { config: null, reason: 'Template must be a non-empty string' }
+  }
+
+  const schemeCheck = isValidUrlScheme(template)
   if (!schemeCheck.valid) {
     return { config: null, reason: schemeCheck.reason }
   }
 
   return {
     config: {
-      template: c.template.trim(),
+      template,
       active: c.active
     },
     reason: null
@@ -137,11 +155,12 @@ export function validateSettings(settings: unknown): GlobalSettings | null {
   const s = settings as Record<string, unknown>
 
   if (typeof s.fallback_url !== 'string') return null
-  if (typeof s.cache_ttl !== 'number' || s.cache_ttl < 0) return null
+  // Use Number.isFinite to reject NaN, Infinity, -Infinity
+  if (typeof s.cache_ttl !== 'number' || !Number.isFinite(s.cache_ttl) || s.cache_ttl < 0) return null
   if (typeof s.route_param !== 'string' || !s.route_param.trim()) return null
 
-  // Validate fallback_url for dangerous schemes if not empty
-  const fallbackUrl = s.fallback_url.trim()
+  // Sanitize fallback_url to remove control characters (prevents CRLF injection)
+  const fallbackUrl = sanitizeUrl(s.fallback_url)
   if (fallbackUrl) {
     const schemeCheck = isValidUrlScheme(fallbackUrl)
     if (!schemeCheck.valid) {
@@ -175,16 +194,17 @@ export function validateSettingsWithReason(settings: unknown): { settings: Globa
     return { settings: null, reason: 'fallback_url must be a string' }
   }
 
-  if (typeof s.cache_ttl !== 'number' || s.cache_ttl < 0) {
-    return { settings: null, reason: 'cache_ttl must be a non-negative number' }
+  // Use Number.isFinite to reject NaN, Infinity, -Infinity
+  if (typeof s.cache_ttl !== 'number' || !Number.isFinite(s.cache_ttl) || s.cache_ttl < 0) {
+    return { settings: null, reason: 'cache_ttl must be a finite non-negative number' }
   }
 
   if (typeof s.route_param !== 'string' || !s.route_param.trim()) {
     return { settings: null, reason: 'route_param must be a non-empty string' }
   }
 
-  // Validate fallback_url for dangerous schemes if not empty
-  const fallbackUrl = s.fallback_url.trim()
+  // Sanitize fallback_url to remove control characters (prevents CRLF injection)
+  const fallbackUrl = sanitizeUrl(s.fallback_url)
   if (fallbackUrl) {
     const schemeCheck = isValidUrlScheme(fallbackUrl)
     if (!schemeCheck.valid) {

@@ -42,6 +42,13 @@ function sanitizeRouteId(id) {
 }
 
 /**
+ * Sanitize URL by removing control characters (prevents CRLF injection)
+ */
+function sanitizeUrl(url) {
+  return url.replace(/[\x00-\x1F\x7F]/g, '').trim()
+}
+
+/**
  * Validate URL scheme is safe (matching admin.ts logic)
  */
 function isValidUrlScheme(url) {
@@ -82,12 +89,18 @@ function validateRouteConfig(config) {
     return { valid: false, reason: 'Active must be a boolean' }
   }
 
-  const schemeCheck = isValidUrlScheme(config.template)
+  // Sanitize template to remove control characters (prevents CRLF injection)
+  const template = sanitizeUrl(config.template)
+  if (!template) {
+    return { valid: false, reason: 'Template must be a non-empty string' }
+  }
+
+  const schemeCheck = isValidUrlScheme(template)
   if (!schemeCheck.valid) {
     return schemeCheck
   }
 
-  return { valid: true }
+  return { valid: true, sanitizedTemplate: template }
 }
 
 /**
@@ -102,8 +115,8 @@ function validateSettings(settings) {
     return { valid: false, reason: 'fallback_url must be a string' }
   }
 
-  // Trim and validate fallback_url for dangerous schemes
-  const fallbackUrl = settings.fallback_url.trim()
+  // Sanitize fallback_url to remove control characters (prevents CRLF injection)
+  const fallbackUrl = sanitizeUrl(settings.fallback_url)
   if (fallbackUrl) {
     const schemeCheck = isValidUrlScheme(fallbackUrl)
     if (!schemeCheck.valid) {
@@ -111,8 +124,9 @@ function validateSettings(settings) {
     }
   }
 
-  if (typeof settings.cache_ttl !== 'number' || settings.cache_ttl < 0) {
-    return { valid: false, reason: 'cache_ttl must be a non-negative number' }
+  // Use Number.isFinite to reject NaN, Infinity, -Infinity
+  if (typeof settings.cache_ttl !== 'number' || !Number.isFinite(settings.cache_ttl) || settings.cache_ttl < 0) {
+    return { valid: false, reason: 'cache_ttl must be a finite non-negative number' }
   }
 
   if (typeof settings.route_param !== 'string' || !settings.route_param.trim()) {
@@ -210,7 +224,7 @@ for (const id of routeIds) {
   sanitizedRoutes.push({
     id: sanitizedId,
     config: {
-      template: routes[id].template.trim(),
+      template: validation.sanitizedTemplate,
       active: routes[id].active
     }
   })

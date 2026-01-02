@@ -2,6 +2,7 @@ import { Hono, type Context } from 'hono'
 import type { StorageAdapter } from '../storage/adapter.js'
 import type { GlobalSettings } from '../types.js'
 import { sanitizeRouteId } from '../utils/sanitize.js'
+import { DANGEROUS_SCHEMES } from '../utils/validation.js'
 
 /**
  * Substitute placeholders in template with values.
@@ -15,14 +16,6 @@ function substituteTemplate(
     return params[key] ?? match
   })
 }
-
-/**
- * Dangerous URL schemes that must be blocked (security)
- */
-const DANGEROUS_SCHEMES = [
-  'javascript:', 'data:', 'vbscript:', 'file:',
-  'about:', 'blob:', 'filesystem:'
-]
 
 /**
  * Ensure URL has a protocol. Adds https:// only if URL looks like a domain.
@@ -70,12 +63,23 @@ function ensureProtocol(url: string): string {
   // e.g., "page.html" or "report.pdf" -> leave as-is (filename, not domain)
   const firstSegment = trimmed.split('/')[0]
   if (firstSegment.includes('.') && !firstSegment.startsWith('.')) {
-    // Check if it looks like a domain (TLD has 2+ letters at the end)
-    // This avoids treating "page.html" or "file.1" as domains
     const parts = firstSegment.split('.')
-    const lastPart = parts[parts.length - 1]
-    // TLD must be 2+ alphabetic characters (com, org, co, uk, etc.)
-    if (lastPart.length >= 2 && /^[a-zA-Z]+$/.test(lastPart)) {
+    const lastPart = parts[parts.length - 1].toLowerCase()
+
+    // Common file extensions to exclude (would otherwise look like TLDs)
+    const fileExtensions = new Set([
+      'html', 'htm', 'php', 'asp', 'aspx', 'jsp', 'cgi',
+      'css', 'js', 'ts', 'jsx', 'tsx', 'vue', 'svelte',
+      'json', 'xml', 'yaml', 'yml', 'toml', 'csv', 'txt', 'md',
+      'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+      'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp',
+      'mp3', 'mp4', 'wav', 'avi', 'mov', 'webm', 'ogg',
+      'zip', 'tar', 'gz', 'rar', 'exe', 'dmg', 'pkg', 'deb', 'rpm',
+      'woff', 'woff2', 'ttf', 'eot', 'otf'
+    ])
+
+    // TLD must be 2+ alphabetic characters AND not a known file extension
+    if (lastPart.length >= 2 && /^[a-zA-Z]+$/.test(lastPart) && !fileExtensions.has(lastPart)) {
       return `https://${trimmed}`
     }
   }
