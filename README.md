@@ -44,6 +44,22 @@ npx wrangler secret put ADMIN_PASSWORD
 npm run deploy
 ```
 
+### Local Development (Cloudflare Workers)
+
+```bash
+# Copy the example configs for local dev
+cp wrangler.toml.example wrangler.toml
+cp .dev.vars.example .dev.vars
+
+# Edit wrangler.toml - set your KV namespace ID
+# Edit .dev.vars - set your ADMIN_PASSWORD (and optionally ADMIN_USERNAME)
+
+# Run local dev server
+npm run dev
+```
+
+> **Note:** `wrangler.toml` and `.dev.vars` are gitignored. The `.dev.vars` file overrides `wrangler.toml` `[vars]` for local development - this is where you set sensitive values like `ADMIN_PASSWORD`.
+
 ### Node.js (VPS/Self-hosted)
 
 ```bash
@@ -188,6 +204,7 @@ The admin panel features:
 - **Routes management**: Add, edit, and delete redirect routes
 - **Visual status**: Toggle routes on/off with a simple switch
 - **Settings**: Configure fallback URL, cache duration, and URL parameter name
+- **Import/Export**: Backup and restore routes as JSON files (replaces all routes on import)
 
 ### API Endpoints
 
@@ -200,6 +217,8 @@ The admin panel features:
 | `DELETE` | `/admin/routes/:id` | Delete route |
 | `GET` | `/admin/settings` | Get global settings |
 | `PUT` | `/admin/settings` | Update global settings |
+| `GET` | `/admin/export` | Export all routes and settings as JSON |
+| `POST` | `/admin/import` | Import routes and settings (replaces all) |
 
 ### API Example
 
@@ -287,9 +306,13 @@ gr8hopper/
 │   │   ├── adapter.ts        # Storage interface
 │   │   ├── kv.ts             # Cloudflare KV adapter
 │   │   └── json-file.ts      # JSON file adapter
-│   └── middleware/
-│       └── auth.ts           # Basic auth
-├── wrangler.toml             # Cloudflare config
+│   ├── middleware/
+│   │   └── auth.ts           # Basic auth
+│   └── utils/
+│       ├── sanitize.ts       # Route ID sanitization
+│       └── validation.ts     # URL and config validation
+├── wrangler.toml.example     # Cloudflare config template (copy to wrangler.toml)
+├── wrangler.production.toml.example  # Production config template
 ├── routes.json               # Local routes (VPS mode)
 ├── package.json
 └── tsconfig.json
@@ -325,6 +348,57 @@ Routes and settings are stored in a local **JSON file** (`routes.json` by defaul
 - Back up this file regularly
 - Change location with `CONFIG_FILE` environment variable
 
+## Bulk Import Routes
+
+Import routes directly to Cloudflare KV without using the admin UI. This is useful for:
+- Initial deployment with pre-configured routes
+- CI/CD pipelines
+- Migrating from another system
+
+### Usage
+
+```bash
+# Import routes.json to production KV
+npm run import:routes routes.json
+
+# Import to local dev KV
+npm run import:routes routes.json --local
+
+# Import from custom path
+npm run import:routes /path/to/my-routes.json
+```
+
+### File Format
+
+```json
+{
+  "routes": {
+    "my-route": {
+      "template": "https://example.com/product/{id}",
+      "active": true
+    },
+    "another-route": {
+      "template": "https://partner.com/{category}/{id}?ref={route}",
+      "active": true
+    }
+  },
+  "settings": {
+    "fallback_url": "https://example.com/not-found",
+    "cache_ttl": 604800,
+    "route_param": "r"
+  }
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `routes` | Yes | Object of route ID → config |
+| `routes.*.template` | Yes | Target URL with `{placeholders}` |
+| `routes.*.active` | Yes | Enable/disable route |
+| `settings` | No | Global settings (uses defaults if omitted) |
+
+> **Note:** The script reads KV namespace ID from `wrangler.production.toml` or `wrangler.toml`.
+
 ## Deployment
 
 ### Cloudflare Workers
@@ -339,7 +413,7 @@ Routes and settings are stored in a local **JSON file** (`routes.json` by defaul
    cp wrangler.production.toml.example wrangler.production.toml
    # Edit wrangler.production.toml and replace "your-production-kv-namespace-id" with your actual ID
    ```
-   
+
    > **Note:** `wrangler.production.toml` is gitignored to keep your namespace ID private. The example file (`wrangler.production.toml.example`) serves as a template.
 
 3. Set admin credentials:
@@ -348,12 +422,19 @@ Routes and settings are stored in a local **JSON file** (`routes.json` by defaul
    npx wrangler secret put ADMIN_PASSWORD
    ```
 
-4. Deploy:
+4. **(Optional) Pre-configure routes:**
+   ```bash
+   # Import routes from a JSON file (skips UI setup)
+   npm run import:routes routes.json
+   ```
+   See [Bulk Import Routes](#bulk-import-routes) for file format.
+
+5. Deploy:
    ```bash
    npm run deploy
    ```
 
-5. **(Optional) Add custom domain:**
+6. **(Optional) Add custom domain:**
    - Go to Cloudflare Dashboard → Workers & Pages → gr8hopper
    - Settings → Triggers → Custom Domains
    - Add your domain (e.g., `go.yourdomain.com`)

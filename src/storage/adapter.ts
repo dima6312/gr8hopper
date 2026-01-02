@@ -21,6 +21,17 @@ export interface StorageAdapter {
 
   /** Update global settings */
   setSettings(settings: GlobalSettings): Promise<void>
+
+  /**
+   * Bulk create/update routes (more efficient than individual setRoute calls)
+   * Replaces all existing routes atomically when clearExisting is true
+   */
+  setRoutes(routes: Array<{ id: string; config: RouteConfig }>, clearExisting?: boolean): Promise<void>
+
+  /**
+   * Bulk delete routes by IDs (more efficient than individual deleteRoute calls)
+   */
+  deleteRoutes(ids: string[]): Promise<void>
 }
 
 /**

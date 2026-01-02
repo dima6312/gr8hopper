@@ -82,6 +82,25 @@ export class JsonFileAdapter implements StorageAdapter {
     this.persist()
   }
 
+  async setRoutes(routes: Array<{ id: string; config: RouteConfig }>, clearExisting = false): Promise<void> {
+    if (clearExisting) {
+      this.data.routes = {}
+    }
+
+    for (const { id, config } of routes) {
+      this.data.routes[id] = config
+    }
+
+    this.persist()
+  }
+
+  async deleteRoutes(ids: string[]): Promise<void> {
+    for (const id of ids) {
+      delete this.data.routes[id]
+    }
+    this.persist()
+  }
+
   /** Reload config from file (useful for hot-reloading) */
   reload(): void {
     this.data = this.loadFile()

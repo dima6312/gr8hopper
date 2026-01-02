@@ -588,9 +588,95 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       background: var(--border);
       margin: 24px 0;
     }
+
+    /* Toast Notifications */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 400px;
+    }
+
+    .toast {
+      padding: 14px 18px;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      font-size: 14px;
+      line-height: 1.5;
+      animation: toastIn 0.3s ease;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .toast.success {
+      background: var(--primary-light);
+      color: var(--primary-hover);
+      border: 1px solid var(--primary);
+    }
+
+    .toast.error {
+      background: var(--danger-light);
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    .toast-icon {
+      flex-shrink: 0;
+      font-size: 16px;
+    }
+
+    .toast-message {
+      flex: 1;
+    }
+
+    .toast-close {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      color: inherit;
+      opacity: 0.6;
+      cursor: pointer;
+      padding: 0;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .toast-close:hover {
+      opacity: 1;
+    }
+
+    .toast.hiding {
+      animation: toastOut 0.2s ease forwards;
+    }
+
+    @keyframes toastIn {
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes toastOut {
+      to {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+    }
   </style>
 </head>
 <body>
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
   <div class="container">
     <!-- Header -->
     <header class="header">
@@ -609,12 +695,27 @@ export function getAdminHtml(basePath: string = '/admin'): string {
     <div class="card">
       <div class="card-header">
         <h2 class="card-title">Your Redirects</h2>
-        <button class="btn btn-primary" id="add-route-btn">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          Add New
-        </button>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary" id="export-btn">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M14 10v3a1 1 0 01-1 1H3a1 1 0 01-1-1v-3M11 5L8 2 5 5M8 2v9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span id="export-btn-text">Export</span>
+          </button>
+          <button class="btn btn-secondary" id="import-btn">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M14 10v3a1 1 0 01-1 1H3a1 1 0 01-1-1v-3M11 8L8 11 5 8M8 11V2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Import
+          </button>
+          <input type="file" id="import-file" accept=".json" style="display: none;">
+          <button class="btn btn-primary" id="add-route-btn">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Add New
+          </button>
+        </div>
       </div>
       <div class="route-list" id="routes-list">
         <div class="empty-state">
@@ -706,6 +807,29 @@ export function getAdminHtml(basePath: string = '/admin'): string {
     </div>
   </div>
 
+  <!-- Import Confirmation Modal -->
+  <div class="modal-overlay" id="import-modal" style="display: none;">
+    <div class="modal" style="max-width: 450px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: var(--danger);">⚠️ Import Configuration?</h3>
+        <button class="modal-close" id="close-import-modal-btn">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-muted); line-height: 1.6;">This will <strong>replace all existing routes</strong> with the imported configuration.</p>
+        <p style="color: var(--text-muted); line-height: 1.6; margin-top: 12px;" id="import-preview"></p>
+        <p style="color: var(--danger); font-weight: 500; margin-top: 16px;">This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="cancel-import-btn">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirm-import-btn">Yes, Replace All</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Add/Edit Route Modal -->
   <div class="modal-overlay" id="route-modal">
     <div class="modal">
@@ -769,6 +893,42 @@ export function getAdminHtml(basePath: string = '/admin'): string {
     const API_BASE = ${JSON.stringify(basePath)};
     let currentRouteParam = 'r'; // Will be updated from settings
 
+    // Toast notification system (replaces disruptive alert() calls)
+    function showToast(message, type = 'success', duration = 5000) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast ' + type;
+
+      const icon = document.createElement('span');
+      icon.className = 'toast-icon';
+      icon.textContent = type === 'success' ? '\\u2713' : '\\u2717';
+      toast.appendChild(icon);
+
+      const msg = document.createElement('span');
+      msg.className = 'toast-message';
+      msg.textContent = message;
+      toast.appendChild(msg);
+
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'toast-close';
+      closeBtn.innerHTML = '&times;';
+      closeBtn.addEventListener('click', () => removeToast(toast));
+      toast.appendChild(closeBtn);
+
+      container.appendChild(toast);
+
+      // Auto-remove after duration
+      if (duration > 0) {
+        setTimeout(() => removeToast(toast), duration);
+      }
+    }
+
+    function removeToast(toast) {
+      if (!toast.parentNode) return;
+      toast.classList.add('hiding');
+      setTimeout(() => toast.remove(), 200);
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       loadSettings().then(() => loadRoutes()); // Load settings first to get route_param
       setupEventListeners();
@@ -811,6 +971,17 @@ export function getAdminHtml(basePath: string = '/admin'): string {
 
       // Check if cache purging is available
       checkCachePurgeStatus();
+
+      // Export/Import handlers
+      document.getElementById('export-btn').addEventListener('click', exportConfig);
+      document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-file').click());
+      document.getElementById('import-file').addEventListener('change', handleImportFile);
+      document.getElementById('close-import-modal-btn').addEventListener('click', closeImportModal);
+      document.getElementById('cancel-import-btn').addEventListener('click', closeImportModal);
+      document.getElementById('confirm-import-btn').addEventListener('click', confirmImport);
+      document.getElementById('import-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'import-modal') closeImportModal();
+      });
     }
 
     function logout() {
@@ -1056,7 +1227,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         const route = await res.json();
         openModal(route);
       } catch (err) {
-        alert('Failed to load redirect');
+        showToast('Failed to load redirect', 'error');
       }
     }
 
@@ -1066,12 +1237,12 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         const response = await fetch(API_BASE + '/routes/' + encodeURIComponent(id), { method: 'DELETE' });
         if (!response.ok) {
           const err = await response.json().catch(() => ({}));
-          alert('Failed to delete redirect: ' + (err.error || 'Unknown error'));
+          showToast('Failed to delete redirect: ' + (err.error || 'Unknown error'), 'error');
           return;
         }
         loadRoutes();
       } catch (err) {
-        alert('Failed to delete redirect');
+        showToast('Failed to delete redirect', 'error');
       }
     }
 
@@ -1158,7 +1329,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         const data = await res.json();
 
         if (!res.ok) {
-          alert('Error: ' + (data.error || 'Failed to purge cache'));
+          showToast('Error: ' + (data.error || 'Failed to purge cache'), 'error');
           return;
         }
 
@@ -1172,7 +1343,142 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         setTimeout(() => successMsg.remove(), 3000);
       } catch (err) {
         console.error('Failed to purge cache:', err);
-        alert('Failed to purge cache');
+        showToast('Failed to purge cache', 'error');
+      } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
+    }
+
+    // Export/Import functions
+    let pendingImportData = null;
+
+    async function exportConfig() {
+      const btn = document.getElementById('export-btn');
+      const btnText = document.getElementById('export-btn-text');
+      const originalText = btnText.textContent;
+      btnText.textContent = 'Exporting...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(API_BASE + '/export');
+        if (!res.ok) {
+          throw new Error('Export failed');
+        }
+        const data = await res.json();
+
+        // Download as file
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'gr8hopper-routes-' + new Date().toISOString().split('T')[0] + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('Export failed:', err);
+        showToast('Failed to export configuration', 'error');
+      } finally {
+        btnText.textContent = originalText;
+        btn.disabled = false;
+      }
+    }
+
+    function handleImportFile(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // Limit file size to 10MB
+      const MAX_FILE_SIZE = 10 * 1024 * 1024;
+      if (file.size > MAX_FILE_SIZE) {
+        showToast('File too large. Maximum size: 10MB', 'error');
+        e.target.value = '';
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onerror = function() {
+        console.error('Failed to read file:', reader.error);
+        showToast('Failed to read file: ' + (reader.error?.message || 'Unknown error'), 'error');
+        e.target.value = '';
+      };
+
+      reader.onload = function(event) {
+        try {
+          const data = JSON.parse(event.target.result);
+
+          if (!data.routes || typeof data.routes !== 'object') {
+            showToast('Invalid file format: missing routes object', 'error');
+            return;
+          }
+
+          const routeCount = Object.keys(data.routes).length;
+          if (routeCount === 0) {
+            showToast('Import file contains no routes', 'error');
+            return;
+          }
+
+          pendingImportData = data;
+
+          // Show preview in modal
+          document.getElementById('import-preview').textContent =
+            'File contains ' + routeCount + ' routes' +
+            (data.settings ? ' and settings.' : '.');
+
+          // Open confirmation modal
+          document.getElementById('import-modal').style.display = 'flex';
+        } catch (err) {
+          console.error('Failed to parse JSON:', err);
+          showToast('Invalid JSON file: ' + (err.message || 'Parse error'), 'error');
+        }
+      };
+      reader.readAsText(file);
+
+      // Reset file input so same file can be selected again
+      e.target.value = '';
+    }
+
+    function closeImportModal() {
+      document.getElementById('import-modal').style.display = 'none';
+      pendingImportData = null;
+    }
+
+    async function confirmImport() {
+      if (!pendingImportData) return;
+
+      const btn = document.getElementById('confirm-import-btn');
+      const originalText = btn.textContent;
+      btn.textContent = 'Importing...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(API_BASE + '/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(pendingImportData)
+        });
+
+        const result = await res.json();
+
+        if (!res.ok) {
+          closeImportModal();
+          showToast('Import failed: ' + (result.error || 'Unknown error'), 'error');
+          return;
+        }
+
+        closeImportModal();
+        loadRoutes();
+        loadSettings();
+
+        // Show success message
+        showToast('Successfully imported ' + result.imported + ' routes', 'success');
+      } catch (err) {
+        console.error('Import failed:', err);
+        closeImportModal();
+        showToast('Failed to import configuration: ' + (err.message || 'Network error'), 'error');
       } finally {
         btn.textContent = originalText;
         btn.disabled = false;

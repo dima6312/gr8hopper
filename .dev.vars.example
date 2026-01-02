@@ -1,0 +1,11 @@
+# Local development variables for Cloudflare Workers
+# Copy this file to .dev.vars and set your values
+# .dev.vars is gitignored and overrides wrangler.toml [vars]
+
+ADMIN_PASSWORD=your-local-dev-password
+
+# Optional: Override admin username (defaults to wrangler.toml value)
+# ADMIN_USERNAME=admin
+
+# Optional: Hide admin panel at custom path
+# ADMIN_PATH=secret-admin-panel

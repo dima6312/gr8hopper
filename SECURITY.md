@@ -87,6 +87,12 @@ For Cloudflare Workers, add security headers via Transform Rules in the Cloudfla
 
 ## Security Changelog
 
+### v1.1.0
+- Runtime URL scheme validation in redirect handler (blocks javascript:, data:, vbscript:, file:, about:, blob:, filesystem:)
+- Improved domain detection heuristic to prevent treating filenames as domains
+- Settings rollback protection during import operations
+- Route ID collision detection to prevent silent overwrites
+
 ### v1.0.0
 - Timing-safe password comparison to prevent timing attacks
 - URL scheme validation for template URLs (blocks javascript:, data:, etc.)

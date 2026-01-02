@@ -9,6 +9,10 @@ dist/
 .dev.vars
 wrangler.production.toml
 
+# Local config
+wrangler.toml
+routes.json
+
 # Environment files
 .env
 .env.local
@@ -28,8 +32,10 @@ npm-debug.log*
 # TypeScript cache
 *.tsbuildinfo
 
-# Local config (contains routes - may want to track this)
-# routes.json
 
 # Project-specific Claude Code instructions
 CLAUDE.md
+
+# Temp files
+temp/
+.kv-bulk-import.json
