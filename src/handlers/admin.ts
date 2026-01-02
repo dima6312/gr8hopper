@@ -263,6 +263,176 @@ export function createAdminHandler(options: AdminHandlerOptions) {
     }
   })
 
+  // Export all routes and settings as JSON
+  app.get('/export', async (c) => {
+    try {
+      const routes = await storage.getAllRoutes()
+      const settings = await storage.getSettings()
+
+      // Convert to routes.json format
+      const routesObj: Record<string, { template: string; active: boolean }> = {}
+      for (const route of routes) {
+        routesObj[route.id] = {
+          template: route.template,
+          active: route.active
+        }
+      }
+
+      return c.json({
+        routes: routesObj,
+        settings
+      })
+    } catch (error) {
+      console.error('[Admin] Failed to export:', error)
+      return c.json({ error: 'Failed to export configuration' }, 500)
+    }
+  })
+
+  // Import routes (replaces all existing routes; settings updated only if provided)
+  app.post('/import', async (c) => {
+    let body: unknown
+    try {
+      body = await c.req.json()
+    } catch {
+      return c.json({ error: 'Invalid JSON' }, 400)
+    }
+
+    try {
+      const data = body as Record<string, unknown>
+
+      if (!data.routes || typeof data.routes !== 'object' || Array.isArray(data.routes)) {
+        return c.json({ error: 'Invalid import format: routes must be an object (not an array)' }, 400)
+      }
+
+      const routesObj = data.routes as Record<string, unknown>
+      const routeIds = Object.keys(routesObj)
+
+      // Validate all routes before importing
+      const validatedRoutes: Array<{ id: string; config: RouteConfig }> = []
+      for (const id of routeIds) {
+        const sanitizedId = sanitizeRouteId(id)
+        if (!sanitizedId) {
+          return c.json({ error: `Invalid route ID: "${id}". IDs must contain only letters, numbers, and hyphens.` }, 400)
+        }
+
+        const config = validateRouteConfig(routesObj[id])
+        if (!config) {
+          return c.json({ error: `Invalid configuration for route: "${id}". Ensure template is a valid URL and active is true/false.` }, 400)
+        }
+
+        validatedRoutes.push({ id: sanitizedId, config })
+      }
+
+      // Prevent importing empty route sets
+      if (validatedRoutes.length === 0) {
+        return c.json({ error: 'Import file contains no valid routes' }, 400)
+      }
+
+      // Validate settings upfront if provided
+      let validatedSettings: GlobalSettings | null = null
+      if (data.settings) {
+        validatedSettings = validateSettings(data.settings)
+        if (!validatedSettings) {
+          return c.json({ error: 'Invalid settings format. Ensure fallback_url is a string, cache_ttl is a positive number, and route_param is alphanumeric.' }, 400)
+        }
+      }
+
+      // BACKUP: Save existing routes before deletion for rollback
+      const existingRoutes = await storage.getAllRoutes()
+      const backup = existingRoutes.map(r => ({
+        id: r.id,
+        config: { template: r.template, active: r.active }
+      }))
+
+      // Helper function to restore backup
+      const restoreBackup = async (): Promise<string[]> => {
+        const failedRestores: string[] = []
+        for (const { id, config } of backup) {
+          try {
+            await storage.setRoute(id, config)
+          } catch (rollbackError) {
+            console.error(`[Admin] Rollback failed for route ${id}:`, rollbackError)
+            failedRestores.push(id)
+          }
+        }
+        return failedRestores
+      }
+
+      // Helper function to delete routes (for cleanup during rollback)
+      const deleteRoutes = async (routes: Array<{ id: string }>): Promise<void> => {
+        for (const { id } of routes) {
+          try {
+            await storage.deleteRoute(id)
+          } catch (deleteError) {
+            // Log but continue - best effort cleanup during rollback
+            console.error(`[Admin] Rollback cleanup: failed to delete route ${id}:`, deleteError)
+          }
+        }
+      }
+
+      // Delete all existing routes (with rollback on failure)
+      try {
+        for (const route of existingRoutes) {
+          await storage.deleteRoute(route.id)
+        }
+      } catch (deleteError) {
+        console.error('[Admin] Delete failed mid-operation, attempting rollback:', deleteError)
+        const failedRestores = await restoreBackup()
+        const rollbackStatus = failedRestores.length > 0
+          ? ` Failed to restore routes: ${failedRestores.join(', ')}.`
+          : ' Previous routes restored successfully.'
+        return c.json({
+          error: `Failed to clear existing routes.${rollbackStatus} Please verify your configuration.`
+        }, 500)
+      }
+
+      // Import new routes with rollback on failure
+      try {
+        for (const { id, config } of validatedRoutes) {
+          await storage.setRoute(id, config)
+        }
+      } catch (importError) {
+        // ROLLBACK: First delete any partially imported routes, then restore backup
+        console.error('[Admin] Import failed mid-operation, attempting rollback:', importError)
+        await deleteRoutes(validatedRoutes)
+        const failedRestores = await restoreBackup()
+        const rollbackStatus = failedRestores.length > 0
+          ? ` Failed to restore routes: ${failedRestores.join(', ')}.`
+          : ' Previous routes restored successfully.'
+        return c.json({
+          error: `Import failed mid-operation.${rollbackStatus} Please verify your configuration.`
+        }, 500)
+      }
+
+      // Import settings if provided and validated (with rollback on failure)
+      if (validatedSettings) {
+        try {
+          await storage.setSettings(validatedSettings)
+        } catch (settingsError) {
+          // ROLLBACK: Delete newly imported routes, then restore backup
+          console.error('[Admin] Settings import failed, rolling back routes:', settingsError)
+          await deleteRoutes(validatedRoutes)
+          const failedRestores = await restoreBackup()
+          const rollbackStatus = failedRestores.length > 0
+            ? ` Failed to restore routes: ${failedRestores.join(', ')}.`
+            : ' Previous routes restored successfully.'
+          return c.json({
+            error: `Settings import failed.${rollbackStatus} Please verify your configuration.`
+          }, 500)
+        }
+      }
+
+      return c.json({
+        success: true,
+        imported: validatedRoutes.length,
+        message: `Imported ${validatedRoutes.length} routes`
+      })
+    } catch (error) {
+      console.error('[Admin] Failed to import:', error)
+      return c.json({ error: 'Failed to import configuration. Check server logs for details.' }, 500)
+    }
+  })
+
   // Check if cache purging is available
   app.get('/purge-cache/status', (c) => {
     const configured = !!(cloudflare?.apiToken && cloudflare?.zoneId)

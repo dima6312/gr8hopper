@@ -17,6 +17,47 @@ function substituteTemplate(
 }
 
 /**
+ * Ensure URL has a protocol. Adds https:// only if URL looks like a domain.
+ * Handles edge cases: empty strings, relative paths, protocol-relative URLs.
+ */
+function ensureProtocol(url: string): string {
+  const trimmed = url.trim()
+
+  // Empty URL - return as-is (will fail redirect, but visible error)
+  if (!trimmed) {
+    return url
+  }
+
+  // Case-insensitive protocol check - already has protocol
+  const lower = trimmed.toLowerCase()
+  if (lower.startsWith('http://') || lower.startsWith('https://')) {
+    return trimmed
+  }
+
+  // Absolute paths (start with /) - leave as-is for browser to resolve
+  if (trimmed.startsWith('/')) {
+    return trimmed
+  }
+
+  // Protocol-relative URLs (//example.com) - add https: only
+  if (trimmed.startsWith('//')) {
+    return `https:${trimmed}`
+  }
+
+  // Heuristic: if first segment looks like a domain (contains dot, but not . or ..)
+  // e.g., "example.com/path" -> prepend https://
+  // e.g., "page/{id}" -> leave as-is (relative path)
+  // e.g., "./file" or "../path" -> leave as-is (relative navigation)
+  const firstSegment = trimmed.split('/')[0]
+  if (firstSegment.includes('.') && !firstSegment.startsWith('.')) {
+    return `https://${trimmed}`
+  }
+
+  // Relative path - leave as-is for browser to resolve
+  return trimmed
+}
+
+/**
  * Build cache headers for redirect response
  */
 function buildCacheHeaders(cacheTtl: number): Record<string, string> {
@@ -72,7 +113,8 @@ export function createRedirectHandler(options: RedirectHandlerOptions) {
     allParams.route = sanitizedId
 
     // Build target URL (missing placeholders are left as-is)
-    const targetUrl = substituteTemplate(route.template, allParams)
+    // Ensure protocol is present (add https:// if missing)
+    const targetUrl = ensureProtocol(substituteTemplate(route.template, allParams))
 
     // Return 301 redirect with aggressive cache headers
     const cacheHeaders = buildCacheHeaders(settings.cache_ttl)

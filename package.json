@@ -11,7 +11,8 @@
     "start": "node dist/server.js",
     "start:bun": "bun src/server.ts",
     "deploy": "wrangler deploy --config wrangler.production.toml",
-    "cf-typegen": "wrangler types"
+    "cf-typegen": "wrangler types",
+    "import:routes": "node scripts/import-routes.cjs"
   },
   "keywords": [
     "redirect",

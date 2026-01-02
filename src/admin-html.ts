@@ -609,12 +609,27 @@ export function getAdminHtml(basePath: string = '/admin'): string {
     <div class="card">
       <div class="card-header">
         <h2 class="card-title">Your Redirects</h2>
-        <button class="btn btn-primary" id="add-route-btn">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          Add New
-        </button>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary" id="export-btn">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M14 10v3a1 1 0 01-1 1H3a1 1 0 01-1-1v-3M11 5L8 2 5 5M8 2v9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span id="export-btn-text">Export</span>
+          </button>
+          <button class="btn btn-secondary" id="import-btn">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M14 10v3a1 1 0 01-1 1H3a1 1 0 01-1-1v-3M11 8L8 11 5 8M8 11V2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Import
+          </button>
+          <input type="file" id="import-file" accept=".json" style="display: none;">
+          <button class="btn btn-primary" id="add-route-btn">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Add New
+          </button>
+        </div>
       </div>
       <div class="route-list" id="routes-list">
         <div class="empty-state">
@@ -702,6 +717,29 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" id="cancel-purge-btn">Cancel</button>
         <button type="button" class="btn btn-danger" id="confirm-purge-btn">Yes, Purge Everything</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Confirmation Modal -->
+  <div class="modal-overlay" id="import-modal" style="display: none;">
+    <div class="modal" style="max-width: 450px;">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: var(--danger);">⚠️ Import Configuration?</h3>
+        <button class="modal-close" id="close-import-modal-btn">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-muted); line-height: 1.6;">This will <strong>replace all existing routes</strong> with the imported configuration.</p>
+        <p style="color: var(--text-muted); line-height: 1.6; margin-top: 12px;" id="import-preview"></p>
+        <p style="color: var(--danger); font-weight: 500; margin-top: 16px;">This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="cancel-import-btn">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirm-import-btn">Yes, Replace All</button>
       </div>
     </div>
   </div>
@@ -811,6 +849,17 @@ export function getAdminHtml(basePath: string = '/admin'): string {
 
       // Check if cache purging is available
       checkCachePurgeStatus();
+
+      // Export/Import handlers
+      document.getElementById('export-btn').addEventListener('click', exportConfig);
+      document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-file').click());
+      document.getElementById('import-file').addEventListener('change', handleImportFile);
+      document.getElementById('close-import-modal-btn').addEventListener('click', closeImportModal);
+      document.getElementById('cancel-import-btn').addEventListener('click', closeImportModal);
+      document.getElementById('confirm-import-btn').addEventListener('click', confirmImport);
+      document.getElementById('import-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'import-modal') closeImportModal();
+      });
     }
 
     function logout() {
@@ -1173,6 +1222,141 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       } catch (err) {
         console.error('Failed to purge cache:', err);
         alert('Failed to purge cache');
+      } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
+    }
+
+    // Export/Import functions
+    let pendingImportData = null;
+
+    async function exportConfig() {
+      const btn = document.getElementById('export-btn');
+      const btnText = document.getElementById('export-btn-text');
+      const originalText = btnText.textContent;
+      btnText.textContent = 'Exporting...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(API_BASE + '/export');
+        if (!res.ok) {
+          throw new Error('Export failed');
+        }
+        const data = await res.json();
+
+        // Download as file
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'gr8hopper-routes-' + new Date().toISOString().split('T')[0] + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('Export failed:', err);
+        alert('Failed to export configuration');
+      } finally {
+        btnText.textContent = originalText;
+        btn.disabled = false;
+      }
+    }
+
+    function handleImportFile(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // Limit file size to 10MB
+      const MAX_FILE_SIZE = 10 * 1024 * 1024;
+      if (file.size > MAX_FILE_SIZE) {
+        alert('File too large. Maximum size: 10MB');
+        e.target.value = '';
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onerror = function() {
+        console.error('Failed to read file:', reader.error);
+        alert('Failed to read file: ' + (reader.error?.message || 'Unknown error'));
+        e.target.value = '';
+      };
+
+      reader.onload = function(event) {
+        try {
+          const data = JSON.parse(event.target.result);
+
+          if (!data.routes || typeof data.routes !== 'object') {
+            alert('Invalid file format: missing routes object');
+            return;
+          }
+
+          const routeCount = Object.keys(data.routes).length;
+          if (routeCount === 0) {
+            alert('Import file contains no routes');
+            return;
+          }
+
+          pendingImportData = data;
+
+          // Show preview in modal
+          document.getElementById('import-preview').textContent =
+            'File contains ' + routeCount + ' routes' +
+            (data.settings ? ' and settings.' : '.');
+
+          // Open confirmation modal
+          document.getElementById('import-modal').style.display = 'flex';
+        } catch (err) {
+          console.error('Failed to parse JSON:', err);
+          alert('Invalid JSON file: ' + (err.message || 'Parse error'));
+        }
+      };
+      reader.readAsText(file);
+
+      // Reset file input so same file can be selected again
+      e.target.value = '';
+    }
+
+    function closeImportModal() {
+      document.getElementById('import-modal').style.display = 'none';
+      pendingImportData = null;
+    }
+
+    async function confirmImport() {
+      if (!pendingImportData) return;
+
+      const btn = document.getElementById('confirm-import-btn');
+      const originalText = btn.textContent;
+      btn.textContent = 'Importing...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(API_BASE + '/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(pendingImportData)
+        });
+
+        const result = await res.json();
+
+        if (!res.ok) {
+          closeImportModal();
+          alert('Import failed: ' + (result.error || 'Unknown error'));
+          return;
+        }
+
+        closeImportModal();
+        loadRoutes();
+        loadSettings();
+
+        // Show success message
+        alert('Successfully imported ' + result.imported + ' routes');
+      } catch (err) {
+        console.error('Import failed:', err);
+        closeImportModal();
+        alert('Failed to import configuration: ' + (err.message || 'Network error'));
       } finally {
         btn.textContent = originalText;
         btn.disabled = false;
