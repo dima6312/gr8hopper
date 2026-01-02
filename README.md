@@ -1,0 +1,470 @@
+# Gr8hopper
+
+A lightweight, high-performance URL redirect service with configurable route templates. Deploy to Cloudflare Workers for global edge distribution or run on any VPS with Node.js/Bun.
+
+## Why Gr8hopper?
+
+- **High Performance**: Handles millions of requests through aggressive edge caching. First request per unique URL executes code; all subsequent requests are served from cache.
+- **Portable**: Single codebase runs on Cloudflare Workers (edge) or any VPS (Node.js/Bun).
+- **Flexible Templates**: Dynamic URL construction with `{param}` placeholders.
+- **Simple Admin**: Clean, user-friendly web interface for managing routes without touching code.
+- **Customizable**: Configure your own URL parameter name for cleaner redirect links.
+- **Minimal Footprint**: ~14KB framework (Hono), zero runtime dependencies beyond that.
+
+## Use Cases
+
+- Affiliate link management
+- Multi-tenant redirects (route to different partners/vendors)
+- Regional URL routing
+- Campaign tracking links
+- A/B testing traffic distribution
+- Personalized landing page routing
+
+## Quick Start
+
+### Cloudflare Workers (Recommended for production)
+
+```bash
+# Clone and install
+git clone https://github.com/your-org/gr8hopper.git
+cd gr8hopper
+npm install
+
+# Create KV namespace for storing routes
+npx wrangler kv namespace create ROUTES_KV
+# Copy the ID from output, then:
+cp wrangler.production.toml.example wrangler.production.toml
+# Edit wrangler.production.toml and replace "your-production-kv-namespace-id" with your actual ID
+
+# Set admin credentials (stored as encrypted secrets)
+npx wrangler secret put ADMIN_USERNAME
+npx wrangler secret put ADMIN_PASSWORD
+
+# Deploy to Cloudflare's global edge network
+npm run deploy
+```
+
+### Node.js (VPS/Self-hosted)
+
+```bash
+# Clone and install
+git clone https://github.com/your-org/gr8hopper.git
+cd gr8hopper
+npm install
+
+# Configure environment
+export ADMIN_USERNAME=admin
+export ADMIN_PASSWORD=your-secure-password
+export PORT=3000
+
+# Development (with hot reload)
+npm run dev:node
+
+# Production
+npm run build
+npm start
+```
+
+### Bun
+
+```bash
+bun install
+ADMIN_USERNAME=admin ADMIN_PASSWORD=your-password bun run src/server.ts
+```
+
+## How It Works
+
+### Redirect Flow
+
+```
+Request: /?r=partner-a&id=12345
+                    │
+                    ▼
+         ┌──────────────────┐
+         │  Edge Cache Hit? │
+         └────────┬─────────┘
+                  │
+     ┌────────────┴────────────┐
+     │                         │
+     ▼ YES                     ▼ NO
+┌─────────┐            ┌──────────────┐
+│ Return  │            │ Look up      │
+│ cached  │            │ route config │
+│ 301     │            └──────┬───────┘
+│ (<1ms)  │                   │
+└─────────┘                   ▼
+                      ┌──────────────┐
+                      │ Substitute   │
+                      │ {params}     │
+                      └──────┬───────┘
+                             │
+                             ▼
+                      ┌──────────────┐
+                      │ Return 301   │
+                      │ + cache it   │
+                      └──────────────┘
+```
+
+### Example
+
+**Route Configuration:**
+```json
+{
+  "id": "partner-a",
+  "template": "https://partner-a.com/product/{id}?ref={route}",
+  "active": true
+}
+```
+
+**Request:**
+```
+https://your-domain.com/?r=partner-a&id=12345
+```
+
+**Result:**
+```
+301 Redirect → https://partner-a.com/product/12345?ref=partner-a
+```
+
+> **Note:** The `{route}` placeholder is automatically replaced with the route ID (e.g., `partner-a`), useful for tracking which route was used.
+
+## Configuration
+
+### Route Schema
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `template` | string | Yes | Target URL with `{param}` placeholders |
+| `active` | boolean | Yes | Enable/disable this route |
+
+### Template Placeholders
+
+Use `{param}` syntax in your destination URL template:
+
+| Placeholder | Source | Example |
+|-------------|--------|---------|
+| `{route}` | Route ID (automatic) | `partner-a` |
+| `{anyParam}` | URL query parameter | `?anyParam=value` |
+
+Missing placeholders are left as-is (e.g., `{id}` stays `{id}`) to make configuration errors visible in the destination URL.
+
+Example template: `https://site.com/{route}/product/{id}`
+
+### Global Settings
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `fallback_url` | string | `/not-found` | Redirect when no route param or route not found (must be absolute URL like `https://...` to redirect) |
+| `cache_ttl` | number | `604800` | Cache duration in seconds (1 week) |
+| `route_param` | string | `r` | URL parameter name for route selection |
+
+### URL Parameter Name
+
+By default, Gr8hopper uses `r` as the URL parameter for route selection:
+```
+https://your-domain.com/?r=my-route&id=123
+```
+
+You can customize this in the admin settings. For example, setting it to `route`:
+```
+https://your-domain.com/?route=my-route&id=123
+```
+
+### Environment Variables
+
+| Variable | Default | Platform | Description |
+|----------|---------|----------|-------------|
+| `PORT` | `3000` | VPS | HTTP server port |
+| `CONFIG_FILE` | `./routes.json` | VPS | Path to routes config file |
+| `ADMIN_USERNAME` | **(required)** | Both | Admin panel username |
+| `ADMIN_PASSWORD` | **(required)** | Both | Admin panel password |
+| `ADMIN_PATH` | `admin` | Both | Admin URL path (customize to hide admin) |
+
+## Admin Panel
+
+Access the admin interface at `/admin` (requires authentication).
+
+The admin panel features:
+- **Routes management**: Add, edit, and delete redirect routes
+- **Visual status**: Toggle routes on/off with a simple switch
+- **Settings**: Configure fallback URL, cache duration, and URL parameter name
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/admin/routes` | List all routes |
+| `GET` | `/admin/routes/:id` | Get single route |
+| `POST` | `/admin/routes` | Create new route |
+| `PUT` | `/admin/routes/:id` | Update existing route |
+| `DELETE` | `/admin/routes/:id` | Delete route |
+| `GET` | `/admin/settings` | Get global settings |
+| `PUT` | `/admin/settings` | Update global settings |
+
+### API Example
+
+```bash
+# Create a route
+curl -X POST https://your-domain.com/admin/routes \
+  -u admin:password \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "my-route",
+    "template": "https://example.com/{id}",
+    "active": true
+  }'
+```
+
+## Performance
+
+### Caching Strategy
+
+Gr8hopper uses aggressive caching to minimize compute costs:
+
+1. **First request** per unique URL: Worker executes, reads config, returns 301 with cache headers
+2. **All subsequent requests**: Served directly from edge cache (no code execution)
+
+**Cache Headers:**
+```
+Cache-Control: public, max-age=604800, s-maxage=604800
+CDN-Cache-Control: max-age=4233600
+```
+
+> **Note:** The `CDN-Cache-Control` header uses a 7x multiplier on the configured TTL, so CDN edge servers cache redirects 7 times longer than browsers (e.g., 1 week browser cache = 7 weeks edge cache).
+
+### Cache Invalidation
+
+**CDN Cache (Cloudflare):**
+If you need to update a redirect destination mid-campaign, purge the CDN cache:
+
+*Option 1: Built-in Admin Button (Recommended)*
+1. Configure cache purge credentials (see below)
+2. Use the "Purge All" button in Settings
+
+*Option 2: Cloudflare Dashboard*
+1. Go to Cloudflare Dashboard → your domain → **Caching** → **Configuration**
+2. Click **Purge Everything**
+
+To enable the built-in purge button:
+```bash
+npx wrangler secret put CLOUDFLARE_API_TOKEN  # Token with Zone.Cache Purge permission
+npx wrangler secret put CLOUDFLARE_ZONE_ID    # Your zone ID from CF dashboard
+```
+
+**Browser Cache:**
+Once a user's browser caches a 301 redirect, it **cannot be remotely invalidated**. The browser will use the cached redirect until:
+- The cache TTL expires (default: 1 week)
+- The user manually clears their browser cache
+
+**Best practice:** Finalize your redirect destinations before launching campaigns. If you anticipate needing to change destinations frequently, consider using a shorter cache TTL in settings.
+
+### Capacity Example
+
+For an email campaign with:
+- 250 routes × 50 IDs per email = 12,500 unique URLs
+- 1,000,000 recipients
+- ~4 security bot scans per recipient
+
+**Result:**
+- Total requests: ~200,000,000
+- Actual Worker invocations: ~12,500 (one per unique URL)
+- Cache hit rate: 99.99%
+- Cost: Cloudflare free tier handles this easily
+
+## Project Structure
+
+```
+gr8hopper/
+├── src/
+│   ├── index.ts              # Cloudflare Workers entry
+│   ├── server.ts             # Node.js/Bun entry
+│   ├── types.ts              # TypeScript interfaces
+│   ├── admin-html.ts         # Admin UI (embedded)
+│   ├── handlers/
+│   │   ├── redirect.ts       # Redirect logic + template engine
+│   │   └── admin.ts          # Admin API endpoints
+│   ├── storage/
+│   │   ├── adapter.ts        # Storage interface
+│   │   ├── kv.ts             # Cloudflare KV adapter
+│   │   └── json-file.ts      # JSON file adapter
+│   └── middleware/
+│       └── auth.ts           # Basic auth
+├── wrangler.toml             # Cloudflare config
+├── routes.json               # Local routes (VPS mode)
+├── package.json
+└── tsconfig.json
+```
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Cloudflare Workers local dev
+npm run dev
+
+# Node.js local dev (hot reload)
+npm run dev:node
+
+# Type checking
+npx tsc --noEmit
+
+# Build for production
+npm run build
+```
+
+## Data Storage
+
+### Cloudflare Workers
+Routes and settings are stored in **Cloudflare KV** - a globally distributed key-value store. Data persists across deployments and is replicated worldwide.
+
+### VPS (Node.js/Bun)
+Routes and settings are stored in a local **JSON file** (`routes.json` by default).
+- Data persists across server restarts
+- Back up this file regularly
+- Change location with `CONFIG_FILE` environment variable
+
+## Deployment
+
+### Cloudflare Workers
+
+1. Create a KV namespace:
+   ```bash
+   npx wrangler kv namespace create ROUTES_KV
+   ```
+
+2. Copy the example production config and add your KV namespace ID:
+   ```bash
+   cp wrangler.production.toml.example wrangler.production.toml
+   # Edit wrangler.production.toml and replace "your-production-kv-namespace-id" with your actual ID
+   ```
+   
+   > **Note:** `wrangler.production.toml` is gitignored to keep your namespace ID private. The example file (`wrangler.production.toml.example`) serves as a template.
+
+3. Set admin credentials:
+   ```bash
+   npx wrangler secret put ADMIN_USERNAME
+   npx wrangler secret put ADMIN_PASSWORD
+   ```
+
+4. Deploy:
+   ```bash
+   npm run deploy
+   ```
+
+5. **(Optional) Add custom domain:**
+   - Go to Cloudflare Dashboard → Workers & Pages → gr8hopper
+   - Settings → Triggers → Custom Domains
+   - Add your domain (e.g., `go.yourdomain.com`)
+
+### Docker (VPS)
+
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY dist ./dist
+COPY routes.json ./
+ENV PORT=3000
+EXPOSE 3000
+CMD ["node", "dist/server.js"]
+```
+
+### Systemd (VPS)
+
+```ini
+[Unit]
+Description=Gr8hopper
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/gr8hopper
+ExecStart=/usr/bin/node dist/server.js
+Environment=PORT=3000
+Environment=ADMIN_USERNAME=your-username
+Environment=ADMIN_PASSWORD=your-secure-password
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Nginx Reverse Proxy (VPS)
+
+For HTTPS and custom domain on VPS, use Nginx as a reverse proxy:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name go.yourdomain.com;
+
+    ssl_certificate /etc/letsencrypt/live/go.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/go.yourdomain.com/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 80;
+    server_name go.yourdomain.com;
+    return 301 https://$server_name$request_uri;
+}
+```
+
+## Security
+
+- Admin endpoints require HTTP Basic Authentication
+- All traffic should use HTTPS (Cloudflare enforces this; for VPS, use a reverse proxy)
+- Route IDs are sanitized to lowercase alphanumeric + hyphens only
+- Destination URLs enforced to use HTTPS
+- Template URLs validated to block dangerous schemes (javascript:, data:, etc.)
+- No user data is stored; the service is stateless
+- XSS protection: All dynamic content uses safe DOM methods
+
+See [SECURITY.md](SECURITY.md) for detailed security considerations and vulnerability reporting.
+
+### Rate Limiting
+
+Rate limiting is recommended for production deployments to prevent brute-force attacks on the admin panel.
+
+**Cloudflare Workers:**
+
+Use Cloudflare's built-in rate limiting (more efficient than application-level):
+
+1. Go to Cloudflare Dashboard → Security → WAF → Rate limiting rules
+2. Create a rule for your admin path:
+   - **If**: URI Path contains `/admin`
+   - **Then**: Block for 1 minute when rate exceeds 10 requests per minute per IP
+
+**VPS (Nginx):**
+
+Add rate limiting to your Nginx configuration:
+
+```nginx
+# Define rate limit zone (10 requests/minute for admin)
+limit_req_zone $binary_remote_addr zone=admin:10m rate=10r/m;
+
+server {
+    # ... existing config ...
+
+    location /admin {
+        limit_req zone=admin burst=5 nodelay;
+        proxy_pass http://127.0.0.1:3000;
+        # ... other proxy settings ...
+    }
+}
+```
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.

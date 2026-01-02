@@ -1,0 +1,25 @@
+{
+  "routes": {
+    "partner-a": {
+      "template": "https://partner-a.example.com/product/{id}?ref={route}",
+      "active": true
+    },
+    "partner-b": {
+      "template": "https://{region}.partner-b.example.com/item/{id}?lang={lang}",
+      "active": true
+    },
+    "campaign": {
+      "template": "https://landing.example.com/{page}?utm_source={source}&utm_campaign={route}",
+      "active": true
+    },
+    "legacy-redirect": {
+      "template": "https://old-system.example.com/legacy/{id}",
+      "active": false
+    }
+  },
+  "settings": {
+    "fallback_url": "https://example.com/not-found",
+    "cache_ttl": 604800,
+    "route_param": "r"
+  }
+}

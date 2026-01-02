@@ -1,0 +1,8 @@
+{
+  "routes": {},
+  "settings": {
+    "fallback_url": "/not-found",
+    "cache_ttl": 604800,
+    "route_param": "r"
+  }
+}

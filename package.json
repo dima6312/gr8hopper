@@ -1,0 +1,43 @@
+{
+  "name": "gr8hopper",
+  "version": "1.0.0",
+  "description": "A lightweight, portable URL redirect service with configurable templates",
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "dev:node": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "start:bun": "bun src/server.ts",
+    "deploy": "wrangler deploy --config wrangler.production.toml",
+    "cf-typegen": "wrangler types"
+  },
+  "keywords": [
+    "redirect",
+    "url-shortener",
+    "cloudflare-workers",
+    "hono"
+  ],
+  "author": "Dmytro Kolyvai",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dima6312/gr8hopper.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dima6312/gr8hopper/issues"
+  },
+  "homepage": "https://github.com/dima6312/gr8hopper#readme",
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "hono": "^4.6.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241127.0",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "wrangler": "^4.54.0"
+  }
+}

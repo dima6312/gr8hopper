@@ -1,0 +1,40 @@
+name = "gr8hopper"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+workers_dev = true
+
+# Custom domain routes
+# Add your custom domains here. The domain must be in your Cloudflare account.
+# Cloudflare will automatically create DNS records and SSL certificates.
+# Example:
+# routes = [
+#   { pattern = "example.com", custom_domain = true },
+#   { pattern = "www.example.com", custom_domain = true }
+# ]
+# Uncomment and update with your actual domain(s):
+# routes = [
+#   { pattern = "yourdomain.com", custom_domain = true }
+# ]
+
+[vars]
+ADMIN_USERNAME = "admin"
+# ADMIN_PATH = "admin"  # Customize to hide admin URL (e.g., "secret-panel-xyz")
+
+# Cache purge configuration (optional)
+# To enable "Purge CDN Cache" in admin panel:
+# 1. Create an API token at https://dash.cloudflare.com/profile/api-tokens with "Zone.Cache Purge" permission
+# 2. Get your Zone ID from the Cloudflare dashboard (Overview page, right sidebar)
+# 3. Add these as secrets: npx wrangler secret put CLOUDFLARE_API_TOKEN && npx wrangler secret put CLOUDFLARE_ZONE_ID
+
+# KV namespace for route configurations
+# Copy this file to wrangler.production.toml and replace with your actual KV namespace ID
+[[kv_namespaces]]
+binding = "ROUTES_KV"
+id = "your-production-kv-namespace-id"
+
+# For local development, use a preview namespace
+# [[kv_namespaces]]
+# binding = "ROUTES_KV"
+# id = "your-kv-namespace-id"
+# preview_id = "your-preview-kv-namespace-id"
+
