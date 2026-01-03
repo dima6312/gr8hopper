@@ -1,4 +1,4 @@
-import { Context, Next } from 'hono'
+import type { Context, Next } from 'hono'
 
 export interface AuthConfig {
   username: string
@@ -71,7 +71,7 @@ export function basicAuth(config: AuthConfig) {
   }
 }
 
-function unauthorizedResponse(c: Context): Response {
+function unauthorizedResponse(_c: Context): Response {
   return new Response('Unauthorized', {
     status: 401,
     headers: {

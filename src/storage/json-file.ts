@@ -44,45 +44,47 @@ export class JsonFileAdapter implements StorageAdapter {
     }
   }
 
-  private persist(): void {
-    this.saveFile(this.data)
+  private persist(): Promise<void> {
+    return Promise.resolve().then(() => {
+      this.saveFile(this.data)
+    })
   }
 
-  async getRoute(id: string): Promise<RouteConfig | null> {
-    return this.data.routes[id] || null
+  getRoute(id: string): Promise<RouteConfig | null> {
+    return Promise.resolve(this.data.routes[id] || null)
   }
 
-  async getAllRoutes(): Promise<StoredRoute[]> {
-    return Object.entries(this.data.routes).map(([id, config]) => ({
+  getAllRoutes(): Promise<StoredRoute[]> {
+    const routes = Object.entries(this.data.routes).map(([id, config]) => ({
       ...config,
       id
     }))
+    return Promise.resolve(routes)
   }
 
-  async setRoute(id: string, config: RouteConfig): Promise<void> {
+  setRoute(id: string, config: RouteConfig): Promise<void> {
     this.data.routes[id] = config
-    this.persist()
+    return this.persist()
   }
 
-  async deleteRoute(id: string): Promise<boolean> {
+  deleteRoute(id: string): Promise<boolean> {
     if (!this.data.routes[id]) {
-      return false
+      return Promise.resolve(false)
     }
     delete this.data.routes[id]
-    this.persist()
-    return true
+    return this.persist().then(() => true)
   }
 
-  async getSettings(): Promise<GlobalSettings> {
-    return this.data.settings || DEFAULT_SETTINGS
+  getSettings(): Promise<GlobalSettings> {
+    return Promise.resolve(this.data.settings || DEFAULT_SETTINGS)
   }
 
-  async setSettings(settings: GlobalSettings): Promise<void> {
+  setSettings(settings: GlobalSettings): Promise<void> {
     this.data.settings = settings
-    this.persist()
+    return this.persist()
   }
 
-  async setRoutes(routes: Array<{ id: string; config: RouteConfig }>, clearExisting = false): Promise<void> {
+  setRoutes(routes: Array<{ id: string; config: RouteConfig }>, clearExisting = false): Promise<void> {
     if (clearExisting) {
       this.data.routes = {}
     }
@@ -91,14 +93,14 @@ export class JsonFileAdapter implements StorageAdapter {
       this.data.routes[id] = config
     }
 
-    this.persist()
+    return this.persist()
   }
 
-  async deleteRoutes(ids: string[]): Promise<void> {
+  deleteRoutes(ids: string[]): Promise<void> {
     for (const id of ids) {
       delete this.data.routes[id]
     }
-    this.persist()
+    return this.persist()
   }
 
   /** Reload config from file (useful for hot-reloading) */

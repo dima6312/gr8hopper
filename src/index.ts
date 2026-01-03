@@ -19,7 +19,7 @@ let adminBase: string | null = null
 let corsMiddleware: ReturnType<typeof cors> | null = null
 
 // Mount routes dynamically based on environment
-app.all('/*', async (c, next) => {
+app.all('/*', async (c, _next) => {
   const env = c.env
 
   // Initialize handlers on first request (cold start)
@@ -65,11 +65,11 @@ app.all('/*', async (c, next) => {
   // Apply CORS for admin routes (dynamic path support)
   if (path === adminBase || path === `${adminBase}/` || path.startsWith(`${adminBase}/`)) {
     // Handle CORS preflight
-    await corsMiddleware!(c, async () => {})
+    await corsMiddleware!(c, async () => { })
 
     // All admin routes require authentication
     const authMiddleware = basicAuth(authConfig!)
-    const authResult = await authMiddleware(c, async () => {})
+    const authResult = await authMiddleware(c, async () => { })
     if (authResult) return authResult // Return 401 if auth failed
   }
 
@@ -84,11 +84,11 @@ app.all('/*', async (c, next) => {
     const newUrl = new URL(c.req.url)
     newUrl.pathname = apiPath
     const newRequest = new Request(newUrl.toString(), c.req.raw)
-    return adminHandler!.fetch(newRequest, env)
+    return adminHandler.fetch(newRequest, env)
   }
 
   // Public redirect
-  return redirectHandler!.fetch(c.req.raw, env)
+  return redirectHandler.fetch(c.req.raw, env)
 })
 
 export default app

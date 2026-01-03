@@ -34,6 +34,7 @@ export type ValidationResult =
  * Must be applied before storing URLs to prevent CRLF injection attacks.
  */
 export function sanitizeUrl(url: string): string {
+  // eslint-disable-next-line no-control-regex -- intentionally detecting control chars for security
   return url.replace(/[\x00-\x1F\x7F]/g, '').trim()
 }
 
@@ -44,6 +45,7 @@ export function sanitizeUrl(url: string): string {
  */
 export function isValidUrlScheme(url: string): ValidationResult {
   // Remove control characters (null bytes, newlines, etc.) to prevent injection
+  // eslint-disable-next-line no-control-regex -- intentionally detecting control chars for security
   const sanitized = url.replace(/[\x00-\x1F\x7F]/g, '')
 
   // Enforce maximum URL length
@@ -104,6 +106,34 @@ export function validateRouteConfig(config: unknown): RouteConfig | null {
     template,
     active: c.active
   }
+}
+
+/**
+ * Validate a partial route update payload.
+ * Returns sanitized partial RouteConfig on success, null on failure.
+ */
+export function validateRoutePatch(config: unknown): Partial<RouteConfig> | null {
+  if (!config || typeof config !== 'object') return null
+
+  const c = config as Record<string, unknown>
+  const patch: Partial<RouteConfig> = {}
+
+  if ('template' in c) {
+    if (typeof c.template !== 'string' || !c.template.trim()) return null
+    const template = sanitizeUrl(c.template)
+    if (!template) return null
+    const schemeCheck = isValidUrlScheme(template)
+    if (!schemeCheck.valid) return null
+    patch.template = template
+  }
+
+  if ('active' in c) {
+    if (typeof c.active !== 'boolean') return null
+    patch.active = c.active
+  }
+
+  if (Object.keys(patch).length === 0) return null
+  return patch
 }
 
 /**

@@ -13,7 +13,8 @@ function substituteTemplate(
   params: Record<string, string>
 ): string {
   return template.replace(/\{([^}]+)\}/g, (match, key) => {
-    return params[key] ?? match
+    const paramKey = String(key)
+    return params[paramKey] ?? match
   })
 }
 
