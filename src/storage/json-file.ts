@@ -1,4 +1,5 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
+import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { dirname } from 'node:path'
 import type { StorageAdapter } from './adapter.js'
 import { DEFAULT_SETTINGS } from './adapter.js'
@@ -8,25 +9,30 @@ import type { RouteConfig, GlobalSettings, StoredRoute, ConfigFile } from '../ty
  * JSON file storage adapter for VPS deployment
  */
 export class JsonFileAdapter implements StorageAdapter {
-  private data: ConfigFile
+  private data: ConfigFile = { routes: {}, settings: DEFAULT_SETTINGS }
 
   constructor(private filePath: string) {
-    this.data = this.loadFile()
+    // Initial data load is handled via await storage.init() or ähnlichem
+    // In this simple case, we'll keep it as a placeholder and let it load on first use or in server.ts
   }
 
-  private loadFile(): ConfigFile {
+  async init(): Promise<void> {
+    this.data = await this.loadFile()
+  }
+
+  private async loadFile(): Promise<ConfigFile> {
     if (!existsSync(this.filePath)) {
-      console.log(`[JsonFileAdapter] Config file not found at ${this.filePath}, creating with defaults`)
+      console.info(`[JsonFileAdapter] Config file not found at ${this.filePath}, creating with defaults`)
       const defaultData: ConfigFile = {
         routes: {},
         settings: DEFAULT_SETTINGS
       }
-      this.saveFile(defaultData)
+      await this.saveFile(defaultData)
       return defaultData
     }
 
     try {
-      const content = readFileSync(this.filePath, 'utf-8')
+      const content = await readFile(this.filePath, 'utf-8')
       return JSON.parse(content) as ConfigFile
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -35,13 +41,13 @@ export class JsonFileAdapter implements StorageAdapter {
     }
   }
 
-  private saveFile(data: ConfigFile): void {
+  private async saveFile(data: ConfigFile): Promise<void> {
     try {
       const dir = dirname(this.filePath)
       if (!existsSync(dir)) {
-        mkdirSync(dir, { recursive: true })
+        await mkdir(dir, { recursive: true })
       }
-      writeFileSync(this.filePath, JSON.stringify(data, null, 2), 'utf-8')
+      await writeFile(this.filePath, JSON.stringify(data, null, 2), 'utf-8')
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       console.error(`[JsonFileAdapter] Failed to save config file to ${this.filePath}: ${errorMessage}`)
@@ -49,22 +55,20 @@ export class JsonFileAdapter implements StorageAdapter {
     }
   }
 
-  private persist(): Promise<void> {
-    return Promise.resolve().then(() => {
-      this.saveFile(this.data)
-    })
+  private async persist(): Promise<void> {
+    await this.saveFile(this.data)
   }
 
-  getRoute(id: string): Promise<RouteConfig | null> {
-    return Promise.resolve(this.data.routes[id] || null)
+  async getRoute(id: string): Promise<RouteConfig | null> {
+    return await Promise.resolve(this.data.routes[id] || null)
   }
 
-  getAllRoutes(): Promise<StoredRoute[]> {
+  async getAllRoutes(): Promise<StoredRoute[]> {
     const routes = Object.entries(this.data.routes).map(([id, config]) => ({
       ...config,
       id
     }))
-    return Promise.resolve(routes)
+    return await Promise.resolve(routes)
   }
 
   setRoute(id: string, config: RouteConfig): Promise<void> {
@@ -72,16 +76,17 @@ export class JsonFileAdapter implements StorageAdapter {
     return this.persist()
   }
 
-  deleteRoute(id: string): Promise<boolean> {
+  async deleteRoute(id: string): Promise<boolean> {
     if (!this.data.routes[id]) {
-      return Promise.resolve(false)
+      return false
     }
     delete this.data.routes[id]
-    return this.persist().then(() => true)
+    await this.persist()
+    return true
   }
 
-  getSettings(): Promise<GlobalSettings> {
-    return Promise.resolve(this.data.settings || DEFAULT_SETTINGS)
+  async getSettings(): Promise<GlobalSettings> {
+    return await Promise.resolve(this.data.settings || DEFAULT_SETTINGS)
   }
 
   setSettings(settings: GlobalSettings): Promise<void> {
@@ -109,7 +114,7 @@ export class JsonFileAdapter implements StorageAdapter {
   }
 
   /** Reload config from file (useful for hot-reloading) */
-  reload(): void {
-    this.data = this.loadFile()
+  async reload(): Promise<void> {
+    this.data = await this.loadFile()
   }
 }

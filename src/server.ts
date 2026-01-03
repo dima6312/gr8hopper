@@ -26,7 +26,7 @@ function loadDevVars(): void {
 
   const nodeEnv = (process.env.NODE_ENV || '').toLowerCase()
   if (nodeEnv === 'production') {
-    console.warn(`[DevVars] .dev.vars found at ${devVarsPath} but NODE_ENV=production; skipping.`)
+    console.info(`[DevVars] .dev.vars found at ${devVarsPath} but NODE_ENV=production; skipping.`)
     return
   }
 
@@ -67,7 +67,7 @@ function loadDevVars(): void {
     return
   }
 
-  console.warn(`[DevVars] Loading environment variables from ${devVarsPath} (NODE_ENV=${envLabel}).`)
+  console.info(`[DevVars] Loading environment variables from ${devVarsPath} (NODE_ENV=${envLabel}).`)
   for (const [key, value] of Object.entries(parsedVars)) {
     process.env[key] = value
   }
@@ -108,6 +108,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD
 
 // Create storage adapter
 const storage = new JsonFileAdapter(CONFIG_FILE)
+await storage.init()
 
 // Create Hono app
 const app = new Hono()
