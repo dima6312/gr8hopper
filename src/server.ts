@@ -12,7 +12,7 @@ import { createAdminHandler } from './handlers/admin.js'
 import { JsonFileAdapter } from './storage/json-file.js'
 import { getAdminHtml } from './admin-html.js'
 import { basicAuth } from './middleware/auth.js'
-import packageJson from '../package.json' assert { type: 'json' }
+import packageJson from '../package.json' with { type: 'json' }
 
 // Load environment variables from .dev.vars if it exists (for development convenience)
 function loadDevVars(): void {

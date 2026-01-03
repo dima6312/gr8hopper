@@ -5,7 +5,7 @@ import { createAdminHandler } from './handlers/admin.js'
 import { KVAdapter } from './storage/kv.js'
 import { basicAuth, type AuthConfig } from './middleware/auth.js'
 import type { Env } from './types.js'
-import packageJson from '../package.json' assert { type: 'json' }
+import packageJson from '../package.json' with { type: 'json' }
 
 // HTML for admin UI (embedded for CF Workers compatibility)
 import { getAdminHtml } from './admin-html.js'
