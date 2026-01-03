@@ -1810,8 +1810,6 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         element.classList.toggle('inactive', !status);
         element.dataset.active = status ? '1' : '0';
         element.setAttribute('aria-checked', String(status));
-        const text = element.querySelector('.route-status-text');
-        if (text) text.textContent = status ? 'Active' : 'Inactive';
       };
 
       // Optimistic UI update

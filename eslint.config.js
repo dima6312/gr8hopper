@@ -36,7 +36,7 @@ export default tseslint.config(
             '@typescript-eslint/no-explicit-any': 'warn',
 
             // Require explicit return types on functions (can be tightened later)
-            '@typescript-eslint/explicit-function-return-type': 'off',
+            '@typescript-eslint/explicit-function-return-type': 'warn',
 
             // Allow floating promises with void operator
             '@typescript-eslint/no-floating-promises': [
