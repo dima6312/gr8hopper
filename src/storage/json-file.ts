@@ -1,4 +1,5 @@
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
 import type { StorageAdapter } from './adapter.js'
 import { DEFAULT_SETTINGS } from './adapter.js'
 import type { RouteConfig, GlobalSettings, StoredRoute, ConfigFile } from '../types.js'
@@ -36,6 +37,10 @@ export class JsonFileAdapter implements StorageAdapter {
 
   private saveFile(data: ConfigFile): void {
     try {
+      const dir = dirname(this.filePath)
+      if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true })
+      }
       writeFileSync(this.filePath, JSON.stringify(data, null, 2), 'utf-8')
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'

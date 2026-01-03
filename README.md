@@ -443,15 +443,42 @@ npm run import:routes /path/to/my-routes.json
 ### Docker (VPS)
 
 ```dockerfile
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
 FROM node:20-alpine
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
-COPY dist ./dist
-COPY routes.json ./
+COPY --from=builder /app/dist ./dist
+# App will create this file inside the mounted volume
+ENV CONFIG_FILE=/app/data/routes.json
 ENV PORT=3000
 EXPOSE 3000
 CMD ["node", "dist/server.js"]
+```
+
+### Docker Compose (Recommended)
+
+Create a `docker-compose.yml` in your root:
+
+```yaml
+services:
+  gr8hopper:
+    image: dima6312/gr8hopper:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=your-secure-password
+      - CONFIG_FILE=/app/data/routes.json
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
 ```
 
 ### Systemd (VPS)

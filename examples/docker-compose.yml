@@ -1,26 +1,27 @@
-version: '3.8'
-
-# IMPORTANT: Set ADMIN_PASSWORD before running:
-#   export ADMIN_PASSWORD=your-secure-password
-#   docker compose up -d
-
 services:
   gr8hopper:
     build:
       context: ..
       dockerfile: examples/Dockerfile
+    container_name: gr8hopper
     ports:
       - "3000:3000"
     environment:
-      - PORT=3000
+      # Required for security
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD is required - set it before running}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD is required - set it or use a .env file}
+      # Point to the persistent data volume
+      - CONFIG_FILE=/app/data/routes.json
+      # Optional settings
+      - ADMIN_PATH=${ADMIN_PATH:-admin}
+      - PORT=3000
     volumes:
-      # Mount routes.json for persistence
-      - ./data/routes.json:/app/routes.json
+      # Mount a 'data' directory for persistence.
+      # Docker will create this folder locally if it's missing.
+      - ./data:/app/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      test: [ "CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r => r.ok ? process.exit(0) : process.exit(1))" ]
       interval: 30s
       timeout: 10s
       retries: 3
