@@ -3,7 +3,7 @@
  * Clean, minimal design with cyan-blue accents
  * All dynamic content uses safe DOM methods (textContent, createElement)
  */
-export function getAdminHtml(basePath: string = '/admin'): string {
+export function getAdminHtml(basePath: string = '/admin', version: string = 'dev'): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1244,6 +1244,27 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         height: 18px;
       }
     }
+
+    .app-footer {
+      margin-top: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--text-light);
+      font-size: 12px;
+    }
+
+    .app-footer a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .app-footer a:hover {
+      color: var(--primary-hover);
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -1372,6 +1393,10 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       </div>
     </div>
 
+    <footer class="app-footer">
+      <a href="https://github.com/dima6312/gr8hopper" target="_blank" rel="noopener noreferrer">Gr8hopper</a>
+      <span>v${version}</span>
+    </footer>
 
   </div>
 

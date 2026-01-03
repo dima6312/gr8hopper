@@ -12,6 +12,7 @@ import { createAdminHandler } from './handlers/admin.js'
 import { JsonFileAdapter } from './storage/json-file.js'
 import { getAdminHtml } from './admin-html.js'
 import { basicAuth } from './middleware/auth.js'
+import packageJson from '../package.json' assert { type: 'json' }
 
 // Load environment variables from .dev.vars if it exists (for development convenience)
 function loadDevVars(): void {
@@ -79,6 +80,7 @@ loadDevVars()
 const PORT = parseInt(process.env.PORT || '3000')
 const CONFIG_FILE = process.env.CONFIG_FILE || './routes.json'
 const ADMIN_PATH = process.env.ADMIN_PATH || 'admin' // Customizable admin URL path
+const APP_VERSION = packageJson.version || 'dev'
 
 // ADMIN_USERNAME and ADMIN_PASSWORD are required for security - no defaults
 if (!process.env.ADMIN_USERNAME) {
@@ -124,8 +126,8 @@ const redirectHandler = createRedirectHandler({ storage })
 const adminHandler = createAdminHandler({ storage, auth: authConfig })
 
 // Serve admin UI (auth applied via middleware above)
-app.get(`/${ADMIN_PATH}`, (c) => c.html(getAdminHtml(`/${ADMIN_PATH}`)))
-app.get(`/${ADMIN_PATH}/`, (c) => c.html(getAdminHtml(`/${ADMIN_PATH}`)))
+app.get(`/${ADMIN_PATH}`, (c) => c.html(getAdminHtml(`/${ADMIN_PATH}`, APP_VERSION)))
+app.get(`/${ADMIN_PATH}/`, (c) => c.html(getAdminHtml(`/${ADMIN_PATH}`, APP_VERSION)))
 
 // Admin API routes
 app.route(`/${ADMIN_PATH}`, adminHandler)

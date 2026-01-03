@@ -5,6 +5,7 @@ import { createAdminHandler } from './handlers/admin.js'
 import { KVAdapter } from './storage/kv.js'
 import { basicAuth, type AuthConfig } from './middleware/auth.js'
 import type { Env } from './types.js'
+import packageJson from '../package.json' assert { type: 'json' }
 
 // HTML for admin UI (embedded for CF Workers compatibility)
 import { getAdminHtml } from './admin-html.js'
@@ -17,6 +18,7 @@ let adminHandler: ReturnType<typeof createAdminHandler> | null = null
 let authConfig: AuthConfig | null = null
 let adminBase: string | null = null
 let corsMiddleware: ReturnType<typeof cors> | null = null
+const APP_VERSION = packageJson.version || 'dev'
 
 // Mount routes dynamically based on environment
 app.all('/*', async (c, _next) => {
@@ -75,7 +77,7 @@ app.all('/*', async (c, _next) => {
 
   // Serve admin UI
   if (path === adminBase || path === `${adminBase}/`) {
-    return c.html(getAdminHtml(adminBase!))
+    return c.html(getAdminHtml(adminBase!, APP_VERSION))
   }
 
   // Admin API
