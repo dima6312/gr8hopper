@@ -30,30 +30,45 @@ function loadDevVars(): void {
   }
 
   const envLabel = nodeEnv || 'unspecified'
-  console.warn(`[DevVars] Loading environment variables from ${devVarsPath} (NODE_ENV=${envLabel}).`)
-  const content = readFileSync(devVarsPath, 'utf-8')
-  const lines = content.split('\n')
+  const parsedVars: Record<string, string> = {}
 
-  for (const line of lines) {
-    const trimmed = line.trim()
-    // Skip comments and empty lines
-    if (!trimmed || trimmed.startsWith('#')) continue
+  try {
+    const content = readFileSync(devVarsPath, 'utf-8')
+    const lines = content.split('\n')
 
-    const equalsIndex = trimmed.indexOf('=')
-    if (equalsIndex > 0) {
-      const key = trimmed.substring(0, equalsIndex).trim()
-      let value = trimmed.substring(equalsIndex + 1).trim()
+    for (const line of lines) {
+      const trimmed = line.trim()
+      // Skip comments and empty lines
+      if (!trimmed || trimmed.startsWith('#')) continue
 
-      // Strip quotes if they exist
-      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-        value = value.substring(1, value.length - 1)
-      }
+      const equalsIndex = trimmed.indexOf('=')
+      if (equalsIndex > 0) {
+        const key = trimmed.substring(0, equalsIndex).trim()
+        let value = trimmed.substring(equalsIndex + 1).trim()
 
-      // Only set if not already set (respect explicit exports)
-      if (!process.env[key]) {
-        process.env[key] = value
+        // Strip quotes if they exist and unescape embedded quotes
+        if (
+          value.length >= 2 &&
+          ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))
+        ) {
+          value = value.substring(1, value.length - 1)
+          value = value.replace(/\\"/g, '"').replace(/\\'/g, "'")
+        }
+
+        // Only set if not already set (respect explicit exports)
+        if (!process.env[key]) {
+          parsedVars[key] = value
+        }
       }
     }
+  } catch (error) {
+    console.warn(`[DevVars] Failed to load .dev.vars at ${devVarsPath} (NODE_ENV=${envLabel}).`, error)
+    return
+  }
+
+  console.warn(`[DevVars] Loading environment variables from ${devVarsPath} (NODE_ENV=${envLabel}).`)
+  for (const [key, value] of Object.entries(parsedVars)) {
+    process.env[key] = value
   }
 }
 

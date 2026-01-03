@@ -42,7 +42,7 @@ export function basicAuth(
     const authHeader = c.req.header('Authorization')
 
     if (!authHeader || !authHeader.startsWith('Basic ')) {
-      return unauthorizedResponse(c)
+      return unauthorizedResponse()
     }
 
     const base64Credentials = authHeader.slice(6)
@@ -56,7 +56,7 @@ export function basicAuth(
         credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8')
       }
     } catch {
-      return unauthorizedResponse(c)
+      return unauthorizedResponse()
     }
 
     const [username, password] = credentials.split(':')
@@ -66,14 +66,14 @@ export function basicAuth(
     const passwordMatch = timingSafeEqual(password, config.password)
 
     if (!usernameMatch || !passwordMatch) {
-      return unauthorizedResponse(c)
+      return unauthorizedResponse()
     }
 
     await next()
   }
 }
 
-function unauthorizedResponse(_c: Context): Response {
+function unauthorizedResponse(): Response {
   return new Response('Unauthorized', {
     status: 401,
     headers: {

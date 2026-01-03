@@ -2248,12 +2248,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
 
     // Scroll to Top functionality
     const scrollToTopBtn = document.getElementById('scroll-to-top');
-    let scrollThreshold = window.innerHeight * 0.01; // 1vh
-
-    // Update threshold on resize
-    window.addEventListener('resize', () => {
-      scrollThreshold = window.innerHeight * 0.01;
-    });
+    let scrollThreshold = 300; // Show after scrolling 300px
 
     // Show/hide button on scroll
     window.addEventListener('scroll', () => {

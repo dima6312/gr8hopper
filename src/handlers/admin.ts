@@ -10,6 +10,11 @@ export interface CloudflareConfig {
   zoneId?: string
 }
 
+interface CloudflareApiResponse {
+  success: boolean
+  errors?: Array<{ message: string }>
+}
+
 export interface AdminHandlerOptions {
   storage: StorageAdapter
   auth: AuthConfig
@@ -354,10 +359,6 @@ export function createAdminHandler(options: AdminHandlerOptions): Hono {
         }
       )
 
-      interface CloudflareApiResponse {
-        success: boolean
-        errors?: Array<{ message: string }>
-      }
       const result: CloudflareApiResponse = await response.json()
 
       if (!result.success) {
