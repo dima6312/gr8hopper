@@ -7,9 +7,9 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # Required for security
-      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD is required - set it or use a .env file}
+      # Required for security - set these in your shell or a .env file
+      - ADMIN_USERNAME=${ADMIN_USERNAME:?ADMIN_USERNAME is required}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
       # Point to the persistent data volume
       - CONFIG_FILE=/app/data/routes.json
       # Optional settings

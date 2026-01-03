@@ -17,7 +17,7 @@ workers_dev = true
 # ]
 
 [vars]
-ADMIN_USERNAME = "admin"
+ADMIN_USERNAME = "your-admin-user"
 # ADMIN_PATH = "admin"  # Customize to hide admin URL (e.g., "secret-panel-xyz")
 
 # Cache purge configuration (optional)

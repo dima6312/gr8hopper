@@ -4,7 +4,7 @@ compatibility_date = "2026-01-01"
 workers_dev = true
 
 [vars]
-ADMIN_USERNAME = "admin"
+ADMIN_USERNAME = "your-admin-user"
 # ADMIN_PATH = "admin"  # Customize to hide admin URL (e.g., "secret-panel-xyz")
 
 # KV namespace for route configurations

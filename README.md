@@ -69,7 +69,7 @@ cd gr8hopper
 npm install
 
 # Configure environment (via export or .dev.vars file)
-export ADMIN_USERNAME=admin
+export ADMIN_USERNAME=your-username
 export ADMIN_PASSWORD=your-secure-password
 export PORT=3000
 
@@ -85,7 +85,7 @@ npm start
 
 ```bash
 bun install
-ADMIN_USERNAME=admin ADMIN_PASSWORD=your-password bun run src/server.ts
+ADMIN_USERNAME=your-username ADMIN_PASSWORD=your-password bun run src/server.ts
 ```
 
 ## How It Works
@@ -473,7 +473,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - ADMIN_USERNAME=admin
+      - ADMIN_USERNAME=your-admin-user
       - ADMIN_PASSWORD=your-secure-password
       - CONFIG_FILE=/app/data/routes.json
     volumes:
