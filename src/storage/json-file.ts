@@ -45,8 +45,9 @@ export class JsonFileAdapter implements StorageAdapter {
   }
 
   private persist(): Promise<void> {
-    this.saveFile(this.data)
-    return Promise.resolve()
+    return Promise.resolve().then(() => {
+      this.saveFile(this.data)
+    })
   }
 
   getRoute(id: string): Promise<RouteConfig | null> {
