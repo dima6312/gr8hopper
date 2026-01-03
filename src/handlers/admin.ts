@@ -19,7 +19,7 @@ export interface AdminHandlerOptions {
 /**
  * Create admin API routes
  */
-export function createAdminHandler(options: AdminHandlerOptions) {
+export function createAdminHandler(options: AdminHandlerOptions): Hono {
   const app = new Hono()
   const { storage, auth, cloudflare } = options
 

@@ -14,7 +14,7 @@ import { getAdminHtml } from './admin-html.js'
 import { basicAuth } from './middleware/auth.js'
 
 // Load environment variables from .dev.vars if it exists (for development convenience)
-function loadDevVars() {
+function loadDevVars(): void {
   const __filename = fileURLToPath(import.meta.url)
   const __dirname = dirname(__filename)
   const devVarsPath = join(__dirname, '..', '.dev.vars')

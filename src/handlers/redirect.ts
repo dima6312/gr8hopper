@@ -107,7 +107,7 @@ export interface RedirectHandlerOptions {
 /**
  * Create redirect handler routes
  */
-export function createRedirectHandler(options: RedirectHandlerOptions) {
+export function createRedirectHandler(options: RedirectHandlerOptions): Hono {
   const app = new Hono()
   const { storage } = options
 

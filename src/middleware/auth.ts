@@ -35,8 +35,10 @@ function timingSafeEqual(a: string, b: string): boolean {
 /**
  * Basic auth middleware for admin routes
  */
-export function basicAuth(config: AuthConfig) {
-  return async (c: Context, next: Next) => {
+export function basicAuth(
+  config: AuthConfig
+): (c: Context, next: Next) => Promise<Response | void> {
+  return async (c: Context, next: Next): Promise<Response | void> => {
     const authHeader = c.req.header('Authorization')
 
     if (!authHeader || !authHeader.startsWith('Basic ')) {
