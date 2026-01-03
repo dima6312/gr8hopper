@@ -5,6 +5,7 @@ import { createAdminHandler } from './handlers/admin.js'
 import { KVAdapter } from './storage/kv.js'
 import { basicAuth, type AuthConfig } from './middleware/auth.js'
 import type { Env } from './types.js'
+import packageJson from '../package.json' with { type: 'json' }
 
 // HTML for admin UI (embedded for CF Workers compatibility)
 import { getAdminHtml } from './admin-html.js'
@@ -17,9 +18,10 @@ let adminHandler: ReturnType<typeof createAdminHandler> | null = null
 let authConfig: AuthConfig | null = null
 let adminBase: string | null = null
 let corsMiddleware: ReturnType<typeof cors> | null = null
+const APP_VERSION = packageJson.version || 'dev'
 
 // Mount routes dynamically based on environment
-app.all('/*', async (c, next) => {
+app.all('/*', async (c, _next) => {
   const env = c.env
 
   // Initialize handlers on first request (cold start)
@@ -65,17 +67,17 @@ app.all('/*', async (c, next) => {
   // Apply CORS for admin routes (dynamic path support)
   if (path === adminBase || path === `${adminBase}/` || path.startsWith(`${adminBase}/`)) {
     // Handle CORS preflight
-    await corsMiddleware!(c, async () => {})
+    await corsMiddleware!(c, async () => { })
 
     // All admin routes require authentication
     const authMiddleware = basicAuth(authConfig!)
-    const authResult = await authMiddleware(c, async () => {})
+    const authResult = await authMiddleware(c, async () => { })
     if (authResult) return authResult // Return 401 if auth failed
   }
 
   // Serve admin UI
   if (path === adminBase || path === `${adminBase}/`) {
-    return c.html(getAdminHtml(adminBase!))
+    return c.html(getAdminHtml(adminBase!, APP_VERSION))
   }
 
   // Admin API
@@ -84,11 +86,11 @@ app.all('/*', async (c, next) => {
     const newUrl = new URL(c.req.url)
     newUrl.pathname = apiPath
     const newRequest = new Request(newUrl.toString(), c.req.raw)
-    return adminHandler!.fetch(newRequest, env)
+    return adminHandler.fetch(newRequest, env)
   }
 
   // Public redirect
-  return redirectHandler!.fetch(c.req.raw, env)
+  return redirectHandler.fetch(c.req.raw, env)
 })
 
 export default app

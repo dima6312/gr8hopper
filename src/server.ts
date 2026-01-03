@@ -2,6 +2,9 @@
  * Node.js/Bun server entry point for VPS deployment
  */
 import { serve } from '@hono/node-server'
+import { readFileSync, existsSync } from 'fs'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'url'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { createRedirectHandler } from './handlers/redirect.js'
@@ -9,11 +12,75 @@ import { createAdminHandler } from './handlers/admin.js'
 import { JsonFileAdapter } from './storage/json-file.js'
 import { getAdminHtml } from './admin-html.js'
 import { basicAuth } from './middleware/auth.js'
+import packageJson from '../package.json' with { type: 'json' }
+
+// Load environment variables from .dev.vars if it exists (for development convenience)
+function loadDevVars(): void {
+  const __filename = fileURLToPath(import.meta.url)
+  const __dirname = dirname(__filename)
+  const devVarsPath = join(__dirname, '..', '.dev.vars')
+
+  if (!existsSync(devVarsPath)) {
+    return
+  }
+
+  const nodeEnv = (process.env.NODE_ENV || '').toLowerCase()
+  if (nodeEnv === 'production') {
+    console.warn(`[DevVars] .dev.vars found at ${devVarsPath} but NODE_ENV=production; skipping.`)
+    return
+  }
+
+  const envLabel = nodeEnv || 'unspecified'
+  const parsedVars: Record<string, string> = {}
+
+  try {
+    const content = readFileSync(devVarsPath, 'utf-8')
+    const lines = content.split('\n')
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+      // Skip comments and empty lines
+      if (!trimmed || trimmed.startsWith('#')) continue
+
+      const equalsIndex = trimmed.indexOf('=')
+      if (equalsIndex > 0) {
+        const key = trimmed.substring(0, equalsIndex).trim()
+        let value = trimmed.substring(equalsIndex + 1).trim()
+
+        // Strip quotes if they exist and unescape embedded quotes
+        if (
+          value.length >= 2 &&
+          ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))
+        ) {
+          value = value.substring(1, value.length - 1)
+          value = value.replace(/\\"/g, '"').replace(/\\'/g, "'")
+        }
+
+        // Only set if not already set (respect explicit exports)
+        if (!process.env[key]) {
+          parsedVars[key] = value
+        }
+      }
+    }
+  } catch (error) {
+    console.warn(`[DevVars] Failed to load .dev.vars at ${devVarsPath} (NODE_ENV=${envLabel}).`, error)
+    return
+  }
+
+  console.warn(`[DevVars] Loading environment variables from ${devVarsPath} (NODE_ENV=${envLabel}).`)
+  for (const [key, value] of Object.entries(parsedVars)) {
+    process.env[key] = value
+  }
+}
+
+// Load .dev.vars for development convenience
+loadDevVars()
 
 // Configuration from environment variables
 const PORT = parseInt(process.env.PORT || '3000')
 const CONFIG_FILE = process.env.CONFIG_FILE || './routes.json'
 const ADMIN_PATH = process.env.ADMIN_PATH || 'admin' // Customizable admin URL path
+const APP_VERSION = packageJson.version || 'dev'
 
 // ADMIN_USERNAME and ADMIN_PASSWORD are required for security - no defaults
 if (!process.env.ADMIN_USERNAME) {
@@ -59,8 +126,8 @@ const redirectHandler = createRedirectHandler({ storage })
 const adminHandler = createAdminHandler({ storage, auth: authConfig })
 
 // Serve admin UI (auth applied via middleware above)
-app.get(`/${ADMIN_PATH}`, (c) => c.html(getAdminHtml(`/${ADMIN_PATH}`)))
-app.get(`/${ADMIN_PATH}/`, (c) => c.html(getAdminHtml(`/${ADMIN_PATH}`)))
+app.get(`/${ADMIN_PATH}`, (c) => c.html(getAdminHtml(`/${ADMIN_PATH}`, APP_VERSION)))
+app.get(`/${ADMIN_PATH}/`, (c) => c.html(getAdminHtml(`/${ADMIN_PATH}`, APP_VERSION)))
 
 // Admin API routes
 app.route(`/${ADMIN_PATH}`, adminHandler)

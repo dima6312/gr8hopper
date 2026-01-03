@@ -3,11 +3,16 @@ import type { StorageAdapter } from '../storage/adapter.js'
 import type { RouteConfig, GlobalSettings } from '../types.js'
 import { basicAuth, type AuthConfig } from '../middleware/auth.js'
 import { sanitizeRouteId } from '../utils/sanitize.js'
-import { validateRouteConfig, validateSettings } from '../utils/validation.js'
+import { validateRouteConfig, validateRoutePatch, validateSettings } from '../utils/validation.js'
 
 export interface CloudflareConfig {
   apiToken?: string
   zoneId?: string
+}
+
+interface CloudflareApiResponse {
+  success: boolean
+  errors?: Array<{ message: string }>
 }
 
 export interface AdminHandlerOptions {
@@ -19,7 +24,7 @@ export interface AdminHandlerOptions {
 /**
  * Create admin API routes
  */
-export function createAdminHandler(options: AdminHandlerOptions) {
+export function createAdminHandler(options: AdminHandlerOptions): Hono {
   const app = new Hono()
   const { storage, auth, cloudflare } = options
 
@@ -84,7 +89,7 @@ export function createAdminHandler(options: AdminHandlerOptions) {
   })
 
   // Update route
-  app.put('/routes/:id', async (c) => {
+  app.patch('/routes/:id', async (c) => {
     let body: unknown
     try {
       body = await c.req.json()
@@ -100,14 +105,16 @@ export function createAdminHandler(options: AdminHandlerOptions) {
         return c.json({ error: 'Route not found' }, 404)
       }
 
-      const config = validateRouteConfig(body)
-
-      if (!config) {
+      const patch = validateRoutePatch(body)
+      if (!patch) {
         return c.json({ error: 'Invalid route configuration' }, 400)
       }
 
-      await storage.setRoute(id, config)
-      return c.json({ id, ...config })
+      // Merge existing with updates (partial update support)
+      const merged: RouteConfig = { ...existing, ...patch }
+
+      await storage.setRoute(id, merged)
+      return c.json({ id, ...merged })
     } catch (error) {
       console.error('[Admin] Failed to update route:', error)
       return c.json({ error: 'Failed to update route' }, 500)
@@ -352,7 +359,7 @@ export function createAdminHandler(options: AdminHandlerOptions) {
         }
       )
 
-      const result = await response.json() as { success: boolean; errors?: Array<{ message: string }> }
+      const result: CloudflareApiResponse = await response.json()
 
       if (!result.success) {
         const errorMsg = result.errors?.[0]?.message || 'Unknown error'

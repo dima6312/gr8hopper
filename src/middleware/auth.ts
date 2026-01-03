@@ -1,4 +1,4 @@
-import { Context, Next } from 'hono'
+import type { Context, Next } from 'hono'
 
 export interface AuthConfig {
   username: string
@@ -35,12 +35,14 @@ function timingSafeEqual(a: string, b: string): boolean {
 /**
  * Basic auth middleware for admin routes
  */
-export function basicAuth(config: AuthConfig) {
-  return async (c: Context, next: Next) => {
+export function basicAuth(
+  config: AuthConfig
+): (c: Context, next: Next) => Promise<Response | void> {
+  return async (c: Context, next: Next): Promise<Response | void> => {
     const authHeader = c.req.header('Authorization')
 
     if (!authHeader || !authHeader.startsWith('Basic ')) {
-      return unauthorizedResponse(c)
+      return unauthorizedResponse()
     }
 
     const base64Credentials = authHeader.slice(6)
@@ -54,7 +56,7 @@ export function basicAuth(config: AuthConfig) {
         credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8')
       }
     } catch {
-      return unauthorizedResponse(c)
+      return unauthorizedResponse()
     }
 
     const [username, password] = credentials.split(':')
@@ -64,14 +66,14 @@ export function basicAuth(config: AuthConfig) {
     const passwordMatch = timingSafeEqual(password, config.password)
 
     if (!usernameMatch || !passwordMatch) {
-      return unauthorizedResponse(c)
+      return unauthorizedResponse()
     }
 
     await next()
   }
 }
 
-function unauthorizedResponse(c: Context): Response {
+function unauthorizedResponse(): Response {
   return new Response('Unauthorized', {
     status: 401,
     headers: {

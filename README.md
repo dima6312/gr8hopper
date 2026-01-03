@@ -68,7 +68,7 @@ git clone https://github.com/your-org/gr8hopper.git
 cd gr8hopper
 npm install
 
-# Configure environment
+# Configure environment (via export or .dev.vars file)
 export ADMIN_USERNAME=admin
 export ADMIN_PASSWORD=your-secure-password
 export PORT=3000
@@ -202,7 +202,8 @@ Access the admin interface at `/admin` (requires authentication).
 
 The admin panel features:
 - **Routes management**: Add, edit, and delete redirect routes
-- **Visual status**: Toggle routes on/off with a simple switch
+- **Visual status**: Toggle routes on/off with a simple switch or one-click toggle in the list
+- **Mobile Optimized**: Responsive design for managing redirects on the go
 - **Settings**: Configure fallback URL, cache duration, and URL parameter name
 - **Import/Export**: Backup and restore routes as JSON files (replaces all routes on import)
 

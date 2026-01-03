@@ -3,7 +3,7 @@
  * Clean, minimal design with cyan-blue accents
  * All dynamic content uses safe DOM methods (textContent, createElement)
  */
-export function getAdminHtml(basePath: string = '/admin'): string {
+export function getAdminHtml(basePath: string = '/admin', version: string = 'dev'): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -27,6 +27,8 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       --danger: #ef4444;
       --danger-hover: #dc2626;
       --danger-light: #fef2f2;
+      --success: #10b981;
+      --success-light: #ecfdf5;
     }
 
     * {
@@ -46,7 +48,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
     .container {
       max-width: 1200px;
       margin: 0 auto;
-      padding: 40px 24px 80px;
+      padding: 24px 16px 60px;
     }
 
     /* Header */
@@ -54,7 +56,155 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 48px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+
+
+    /* Expand/Collapse Settings */
+    .settings-expandable {
+      background: var(--card);
+      border-radius: 16px;
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .settings-expandable--collapsed {
+      border: 1px solid transparent;
+    }
+
+    .settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      cursor: pointer;
+      background: var(--card);
+      transition: background 0.15s ease;
+      user-select: none;
+    }
+
+    .settings-header:hover {
+      background: var(--bg);
+    }
+
+    .settings-header-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .expand-icon {
+      width: 18px;
+      height: 18px;
+      transition: transform 0.2s ease;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .settings-expandable--collapsed .expand-icon {
+      transform: rotate(-90deg);
+    }
+
+    /* Routes count in header */
+    .routes-count {
+      display: inline-block;
+      background: var(--primary-light);
+      color: var(--primary);
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-left: 8px;
+    }
+
+    .header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .settings-content {
+      display: block;
+      padding: 20px;
+      border-top: 1px solid var(--border);
+      background: var(--card);
+    }
+
+    .settings-expandable--collapsed .settings-content {
+      display: none;
+    }
+
+    /* Empty state inside collapsed settings */
+    .settings-empty {
+      padding: 16px 20px;
+      color: var(--text-muted);
+      font-size: 14px;
+      background: var(--bg);
+      border-radius: 8px;
+      margin: 0 20px 20px;
+    }
+
+    /* Header Buttons Container */
+    .header-buttons {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    /* Mobile Header Optimizations */
+    @media (max-width: 768px) {
+      .header {
+        margin-bottom: 20px;
+      }
+
+      .header h1 {
+        font-size: 18px;
+        flex-wrap: wrap;
+      }
+
+      .routes-count {
+        font-size: 11px;
+        padding: 1px 6px;
+      }
+
+      .settings-header {
+        padding: 14px 16px;
+      }
+
+      .settings-header-title {
+        font-size: 15px;
+      }
+
+      .expand-icon {
+        width: 16px;
+        height: 16px;
+      }
+
+      .settings-content {
+        padding: 16px;
+      }
+
+      .settings-empty {
+        margin: 0 16px 16px;
+        font-size: 13px;
+      }
+    }
+
+    /* Desktop: Header h1 flex layout */
+    @media (min-width: 769px) {
+      .header h1 {
+        gap: 10px;
+      }
     }
 
     .logout-btn {
@@ -118,6 +268,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       font-weight: 500;
       cursor: pointer;
       transition: all 0.2s ease;
+      white-space: nowrap;
     }
 
     .btn:active {
@@ -135,24 +286,28 @@ export function getAdminHtml(basePath: string = '/admin'): string {
     }
 
     .btn-secondary {
-      background: var(--bg);
+      background: var(--card);
       color: var(--text-muted);
       border: 1px solid var(--border);
     }
 
     .btn-secondary:hover {
-      background: var(--border);
+      background: var(--bg);
       color: var(--text);
+      transform: translateY(-1px);
     }
 
     .btn-danger {
-      background: var(--danger-light);
-      color: var(--danger);
+      background: #fff;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
     }
 
     .btn-danger:hover {
-      background: var(--danger);
-      color: white;
+      background: var(--danger-light);
+      color: var(--danger);
+      border-color: var(--danger);
+      transform: translateY(-1px);
     }
 
     .btn-danger-outline {
@@ -172,6 +327,53 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       border-radius: 8px;
     }
 
+    /* Mobile Button Optimizations */
+    @media (max-width: 768px) {
+      .btn {
+        padding: 8px 12px;
+        font-size: 13px;
+        gap: 4px;
+      }
+
+      .btn-sm {
+        padding: 5px 10px;
+        font-size: 12px;
+      }
+
+      .header-buttons {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        max-width: 100%;
+      }
+
+      .header-buttons .btn {
+        flex: 1;
+        min-width: 60px;
+        justify-content: center;
+      }
+
+      .header-buttons .btn svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      .header-buttons .btn span {
+        display: none;
+      }
+
+      .header-buttons .btn-primary span {
+        display: inline;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header-buttons .btn-primary span {
+        display: none;
+      }
+    }
+
     /* Route List */
     .route-list {
       display: flex;
@@ -184,10 +386,12 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       background: var(--bg);
       border-radius: 12px;
       transition: all 0.15s ease;
+      border: 1px solid transparent;
     }
 
     .route-item:hover {
       background: #f3f4f6;
+      border-color: var(--border);
     }
 
     .route-header {
@@ -206,62 +410,187 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       font-weight: 600;
       font-size: 15px;
       color: var(--text);
-      margin-bottom: 2px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .route-url {
       font-size: 13px;
       color: var(--text-muted);
       font-family: 'SF Mono', Monaco, monospace;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      word-break: break-all;
+      line-height: 1.4;
+      padding: 4px 0;
+      margin-bottom: 2px;
+    }
+
+    .sample-link-wrapper {
+      position: relative;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 2px;
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      transition: all 0.2s ease;
+    }
+
+    .sample-link-wrapper:hover {
+      border-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(0, 186, 255, 0.08);
     }
 
     .route-sample-link {
-      display: block;
-      font-size: 12px;
+      flex: 1;
+      font-size: 13px;
       color: var(--primary);
       font-family: 'SF Mono', Monaco, monospace;
       text-decoration: none;
       word-break: break-all;
       line-height: 1.4;
+      padding: 10px 12px;
+      border: none;
+      background: transparent;
+      outline: none;
     }
 
-    .route-sample-link:hover {
-      text-decoration: underline;
+    .route-sample-link:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+      border-radius: 6px;
     }
 
-    .route-status {
-      display: inline-flex;
+    .copy-btn {
+      display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .route-status.active {
-      background: var(--primary-light);
-      color: var(--primary-hover);
-    }
-
-    .route-status.inactive {
-      background: #f3f4f6;
+      gap: 5px;
+      background: var(--card);
+      border: 1px solid var(--border);
       color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 7px;
+      margin: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      user-select: none;
     }
 
-    .route-status-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: currentColor;
+    .copy-btn:hover {
+      color: var(--primary);
+      border-color: var(--primary);
+      background: var(--primary-light);
     }
+
+    .copy-btn:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
+    .copy-btn.copied {
+      color: var(--success);
+      border-color: var(--success);
+      background: var(--success-light);
+    }
+
+    .copy-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+
 
     .route-actions {
       display: flex;
       gap: 8px;
+      justify-content: flex-end;
+      padding-top: 12px;
+      margin-top: 8px;
+      border-top: 1px solid var(--border);
+      width: 100%;
+    }
+
+    /* Toggle Switch for Route Status */
+    .route-toggle {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      background: var(--border);
+      border-radius: 11px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .route-toggle:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
+    .route-toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      background: white;
+      border-radius: 9px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      transition: transform 0.2s ease;
+    }
+
+    .route-toggle.active {
+      background: var(--primary);
+    }
+
+    .route-toggle.active::after {
+      transform: translateX(18px);
+    }
+
+
+
+    /* Mobile Route Item Optimizations */
+    @media (max-width: 768px) {
+      .route-item {
+        padding: 12px;
+      }
+
+      .route-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .route-info {
+        width: 100%;
+      }
+
+      .route-name {
+        font-size: 14px;
+      }
+
+      .route-url {
+        font-size: 12px;
+      }
+
+
+
+      .route-sample-link {
+        font-size: 11px;
+        padding: 8px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .route-actions .btn-sm {
+        padding: 5px 6px;
+        font-size: 11px;
+      }
     }
 
     .empty-state {
@@ -299,6 +628,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       font-size: 13px;
       color: var(--text-muted);
       margin-top: 6px;
+      line-height: 1.4;
     }
 
     .help-details {
@@ -341,6 +671,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       border-radius: 4px;
       font-family: 'SF Mono', Monaco, monospace;
       color: var(--text);
+      word-break: break-all;
     }
 
     .help-note {
@@ -402,6 +733,162 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 16px;
+    }
+
+    /* Mobile Form Optimizations */
+    @media (max-width: 768px) {
+      .form-input {
+        padding: 10px 12px;
+        font-size: 14px;
+      }
+
+      .form-label {
+        font-size: 13px;
+      }
+
+      .form-hint {
+        font-size: 12px;
+      }
+
+      .input-prefix {
+        padding: 0 10px;
+        font-size: 12px;
+      }
+
+      .form-row {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .help-example code {
+        font-size: 11px;
+        padding: 5px 6px;
+      }
+    }
+
+    /* Settings form actions */
+    .form-actions {
+      display: flex;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .input-hidden {
+      display: none;
+    }
+
+    /* Cache purge section */
+    .cache-purge-section {
+      display: none;
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .cache-purge-section--visible {
+      display: block;
+    }
+
+    .cache-purge-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 24px;
+    }
+
+    .cache-purge-info {
+      flex: 1;
+    }
+
+    .cache-purge-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .cache-purge-hint {
+      margin: 0;
+    }
+
+    .cache-purge-btn {
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .cache-purge-success {
+      color: var(--primary);
+      font-size: 13px;
+      margin-left: 12px;
+    }
+
+    /* Mobile Modal Optimizations */
+    @media (max-width: 768px) {
+      .modal {
+        max-width: calc(100vw - 32px);
+        max-height: calc(100vh - 32px);
+        border-radius: 16px;
+      }
+
+      .modal-header {
+        padding: 16px 20px;
+      }
+
+      .modal-body {
+        padding: 20px;
+      }
+
+      .modal-footer {
+        padding: 14px 20px;
+      }
+
+      .modal-title {
+        font-size: 16px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .modal {
+        max-width: calc(100vw - 16px);
+        max-height: calc(100vh - 16px);
+      }
+
+      .modal-header,
+      .modal-body,
+      .modal-footer {
+        padding: 12px 16px;
+      }
+    }
+
+    /* Toast Mobile Optimizations */
+    @media (max-width: 768px) {
+      .toast-container {
+        top: 12px;
+        right: 12px;
+        left: 12px;
+        max-width: none;
+      }
+
+      .toast {
+        font-size: 13px;
+        padding: 12px 14px;
+      }
+    }
+
+    /* Card Mobile Optimizations */
+    @media (max-width: 768px) {
+      .card {
+        padding: 20px;
+      }
+
+      .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .card-title {
+        font-size: 16px;
+      }
     }
 
     /* Toggle Switch */
@@ -491,6 +978,34 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       overflow-y: auto;
       box-shadow: 0 20px 60px rgba(0,0,0,0.15);
       animation: modalIn 0.25s ease;
+    }
+
+    .modal--sm {
+      max-width: 400px;
+    }
+
+    .modal--md {
+      max-width: 450px;
+    }
+
+    .modal-title--danger {
+      color: var(--danger);
+    }
+
+    .modal-text {
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin: 0;
+    }
+
+    .modal-text--spaced {
+      margin-top: 12px;
+    }
+
+    .modal-text--warning {
+      color: var(--danger);
+      font-weight: 500;
+      margin-top: 16px;
     }
 
     @keyframes modalIn {
@@ -671,31 +1186,181 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         transform: translateX(20px);
       }
     }
+
+    /* Scroll to Top Button */
+    .scroll-to-top {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 48px;
+      height: 48px;
+      background: var(--primary);
+      border: none;
+      border-radius: 50%;
+      color: white;
+      cursor: pointer;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(20px);
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(0, 186, 255, 0.3);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .scroll-to-top.visible {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    .scroll-to-top:hover {
+      background: var(--primary-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 186, 255, 0.4);
+    }
+
+    .scroll-to-top:active {
+      transform: translateY(0);
+    }
+
+    .scroll-to-top svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .scroll-to-top {
+        bottom: 16px;
+        right: 16px;
+        width: 44px;
+        height: 44px;
+      }
+
+      .scroll-to-top svg {
+        width: 18px;
+        height: 18px;
+      }
+    }
+
+    .app-footer {
+      margin-top: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--text-light);
+      font-size: 12px;
+    }
+
+    .app-footer a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .app-footer a:hover {
+      color: var(--primary-hover);
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
   <!-- Toast Notification Container -->
-  <div class="toast-container" id="toast-container"></div>
+  <div class="toast-container" id="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Scroll to Top Button -->
+  <button class="scroll-to-top" id="scroll-to-top" aria-label="Scroll to top">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="18 15 12 9 6 15"></polyline>
+    </svg>
+  </button>
 
   <div class="container">
     <!-- Header -->
     <header class="header">
-      <h1 style="font-size: 20px; font-weight: 600;">Redirects</h1>
-      <button class="logout-btn" id="logout-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-          <polyline points="16 17 21 12 16 7"/>
-          <line x1="21" y1="12" x2="9" y2="12"/>
-        </svg>
-        Log out
-      </button>
+      <h1>Redirects <span class="routes-count" id="routes-count">0</span></h1>
+      <div class="header-buttons">
+        <button class="logout-btn" id="logout-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          Log out
+        </button>
+      </div>
     </header>
+
+    <!-- Settings Expandable Section (at top) -->
+    <div class="settings-expandable settings-expandable--collapsed" id="settings-section">
+      <div class="settings-header" id="settings-toggle">
+        <div class="settings-header-title">
+          Settings
+          <svg class="expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </div>
+      </div>
+      <div class="settings-content">
+        <form id="settings-form">
+          <div class="settings-grid">
+            <div class="form-group">
+              <label class="form-label">Route parameter</label>
+              <input type="text" id="route_param" class="form-input" placeholder="r" maxlength="20">
+              <p class="form-hint">Query param that identifies the redirect, e.g. <strong>?r=</strong>campaign-link</p>
+            </div>
+
+            <div class="settings-row">
+              <div class="form-group">
+                <label class="form-label">Cache duration</label>
+                <select id="cache_ttl" class="form-input">
+                  <option value="86400">24 hours</option>
+                  <option value="604800" selected>1 week (recommended)</option>
+                  <option value="1209600">2 weeks</option>
+                  <option value="2592000">1 month</option>
+                </select>
+                <p class="form-hint">Browser cache duration (CDN caches 7× longer). Longer = faster &amp; cheaper.</p>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Fallback URL</label>
+                <input type="text" id="fallback_url" class="form-input form-input-mono" placeholder="/not-found">
+                <p class="form-hint">Where to send unknown redirects</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save settings</button>
+            <span id="settings-status" class="save-status"></span>
+          </div>
+        </form>
+
+        <!-- Cache Purge Section (only shown when configured) -->
+        <div id="cache-purge-section" class="cache-purge-section">
+          <div class="cache-purge-header">
+            <div class="cache-purge-info">
+              <h3 class="cache-purge-title">Purge CDN Cache</h3>
+              <p class="form-hint cache-purge-hint">Remove all cached redirects from Cloudflare's edge servers. Only use if you've made a mistake in one of the links, and the link has been accessed at least once.</p>
+            </div>
+            <button type="button" class="btn btn-danger-outline btn-sm cache-purge-btn" id="purge-cache-btn">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M1.75 3.5h10.5M5.25 3.5V2.333c0-.31.252-.583.583-.583h2.334c.31 0 .583.252.583.583V3.5m1.75 0v8.167c0 .31-.252.583-.583.583H4.083a.594.594 0 01-.583-.583V3.5h7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Purge All
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Routes Card -->
     <div class="card">
       <div class="card-header">
-        <h2 class="card-title">Your Redirects</h2>
-        <div style="display: flex; gap: 8px;">
+        <h2 class="card-title">Your redirects</h2>
+        <div class="header-buttons">
           <button class="btn btn-secondary" id="export-btn">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M14 10v3a1 1 0 01-1 1H3a1 1 0 01-1-1v-3M11 5L8 2 5 5M8 2v9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -708,12 +1373,12 @@ export function getAdminHtml(basePath: string = '/admin'): string {
             </svg>
             Import
           </button>
-          <input type="file" id="import-file" accept=".json" style="display: none;">
+          <input type="file" id="import-file" class="input-hidden" accept=".json">
           <button class="btn btn-primary" id="add-route-btn">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
-            Add New
+            Add new
           </button>
         </div>
       </div>
@@ -728,67 +1393,18 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       </div>
     </div>
 
-    <!-- Settings Card -->
-    <div class="card">
-      <div class="card-header">
-        <h2 class="card-title">Settings</h2>
-      </div>
-      <form id="settings-form">
-        <div class="settings-grid">
-          <div class="form-group">
-            <label class="form-label">Route Parameter</label>
-            <input type="text" id="route_param" class="form-input" placeholder="r" maxlength="20">
-            <p class="form-hint">Query param that identifies the redirect, e.g. <strong>?r=</strong>campaign-link</p>
-          </div>
+    <footer class="app-footer">
+      <a href="https://github.com/dima6312/gr8hopper" target="_blank" rel="noopener noreferrer">Gr8hopper</a>
+      <span>v${version}</span>
+    </footer>
 
-          <div class="settings-row">
-            <div class="form-group">
-              <label class="form-label">Cache Duration</label>
-              <select id="cache_ttl" class="form-input">
-                <option value="86400">24 hours</option>
-                <option value="604800" selected>1 week (recommended)</option>
-                <option value="1209600">2 weeks</option>
-                <option value="2592000">1 month</option>
-              </select>
-              <p class="form-hint">Browser cache duration (CDN caches 7× longer). Longer = faster &amp; cheaper.</p>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Fallback URL</label>
-              <input type="text" id="fallback_url" class="form-input form-input-mono" placeholder="/not-found">
-              <p class="form-hint">Where to send unknown redirects</p>
-            </div>
-          </div>
-        </div>
-
-        <div style="display: flex; align-items: center; margin-top: 8px;">
-          <button type="submit" class="btn btn-primary">Save Settings</button>
-          <span id="settings-status" class="save-status"></span>
-        </div>
-      </form>
-
-      <!-- Cache Purge Section (only shown when configured) -->
-      <div id="cache-purge-section" style="display: none; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 24px;">
-          <div style="flex: 1;">
-            <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">Purge CDN Cache</h3>
-            <p class="form-hint" style="margin: 0;">Remove all cached redirects from Cloudflare's edge servers. Only use if you've made a mistake in one of the links, and the link has been accessed at least once.</p>
-          </div>
-          <button type="button" class="btn btn-danger-outline btn-sm" id="purge-cache-btn" style="white-space: nowrap; flex-shrink: 0;">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M1.75 3.5h10.5M5.25 3.5V2.333c0-.31.252-.583.583-.583h2.334c.31 0 .583.252.583.583V3.5m1.75 0v8.167c0 .31-.252.583-.583.583H4.083a.594.594 0 01-.583-.583V3.5h7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            Purge All
-          </button>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- Purge Cache Confirmation Modal -->
-  <div class="modal-overlay" id="purge-modal" style="display: none;">
-    <div class="modal" style="max-width: 400px;">
+  <div class="modal-overlay" id="purge-modal">
+    <div class="modal modal--sm">
       <div class="modal-header">
-        <h3 class="modal-title" style="color: var(--danger);">⚠️ Purge All Cache?</h3>
+        <h3 class="modal-title modal-title--danger">⚠️ Purge All Cache?</h3>
         <button class="modal-close" id="close-purge-modal-btn">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -796,9 +1412,9 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         </button>
       </div>
       <div class="modal-body">
-        <p style="color: var(--text-muted); line-height: 1.6;">This will remove <strong>all cached redirects</strong> from Cloudflare's edge servers worldwide.</p>
-        <p style="color: var(--text-muted); line-height: 1.6; margin-top: 12px;">The next request to each redirect URL will execute your Worker code again and re-cache the result.</p>
-        <p style="color: var(--danger); font-weight: 500; margin-top: 16px;">This action cannot be undone.</p>
+        <p class="modal-text">This will remove <strong>all cached redirects</strong> from Cloudflare's edge servers worldwide.</p>
+        <p class="modal-text modal-text--spaced">The next request to each redirect URL will execute your Worker code again and re-cache the result.</p>
+        <p class="modal-text modal-text--warning">This action cannot be undone.</p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" id="cancel-purge-btn">Cancel</button>
@@ -808,10 +1424,10 @@ export function getAdminHtml(basePath: string = '/admin'): string {
   </div>
 
   <!-- Import Confirmation Modal -->
-  <div class="modal-overlay" id="import-modal" style="display: none;">
-    <div class="modal" style="max-width: 450px;">
+  <div class="modal-overlay" id="import-modal">
+    <div class="modal modal--md">
       <div class="modal-header">
-        <h3 class="modal-title" style="color: var(--danger);">⚠️ Import Configuration?</h3>
+        <h3 class="modal-title modal-title--danger">⚠️ Import Configuration?</h3>
         <button class="modal-close" id="close-import-modal-btn">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -819,9 +1435,9 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         </button>
       </div>
       <div class="modal-body">
-        <p style="color: var(--text-muted); line-height: 1.6;">This will <strong>replace all existing routes</strong> with the imported configuration.</p>
-        <p style="color: var(--text-muted); line-height: 1.6; margin-top: 12px;" id="import-preview"></p>
-        <p style="color: var(--danger); font-weight: 500; margin-top: 16px;">This action cannot be undone.</p>
+        <p class="modal-text">This will <strong>replace all existing routes</strong> with the imported configuration.</p>
+        <p class="modal-text modal-text--spaced" id="import-preview"></p>
+        <p class="modal-text modal-text--warning">This action cannot be undone.</p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" id="cancel-import-btn">Cancel</button>
@@ -834,7 +1450,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
   <div class="modal-overlay" id="route-modal">
     <div class="modal">
       <div class="modal-header">
-        <h3 class="modal-title" id="modal-title">Add Redirect</h3>
+        <h3 class="modal-title" id="modal-title">Add redirect</h3>
         <button class="modal-close" id="close-modal-btn">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -848,7 +1464,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
 
           <div class="form-group">
             <label class="form-label">Route ID</label>
-            <input type="text" id="route-id" class="form-input" required pattern="[a-zA-Z0-9-]+" placeholder="my-redirect">
+            <input type="text" id="route-id" class="form-input" required pattern="[a-zA-Z0-9-]+" placeholder="my-redirect" autocomplete="off">
             <p class="form-hint">Letters, numbers, and hyphens only. Use in URLs as ?r=<strong>my-redirect</strong></p>
           </div>
 
@@ -856,7 +1472,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
             <label class="form-label">Destination URL</label>
             <div class="input-with-prefix">
               <span class="input-prefix">https://</span>
-              <input type="text" id="route-template" class="form-input form-input-mono" required placeholder="example.com/page/{id}">
+              <input type="text" id="route-template" class="form-input form-input-mono" required placeholder="example.com/page/{id}" autocomplete="off">
             </div>
             <p class="form-hint">Add <strong>{placeholders}</strong> that get replaced with values from your source URL.</p>
             <details class="help-details">
@@ -883,7 +1499,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
 
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" id="cancel-modal-btn">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="save-route-btn">Save Redirect</button>
+          <button type="submit" class="btn btn-primary" id="save-route-btn">Save redirect</button>
         </div>
       </form>
     </div>
@@ -891,6 +1507,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
 
   <script>
     const API_BASE = ${JSON.stringify(basePath)};
+    const SETTINGS_COLLAPSED_KEY = 'gr8hopper_settings_collapsed';
     let currentRouteParam = 'r'; // Will be updated from settings
 
     // Toast notification system (replaces disruptive alert() calls)
@@ -930,6 +1547,12 @@ export function getAdminHtml(basePath: string = '/admin'): string {
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+      // Check for saved settings state
+      const settingsCollapsed = localStorage.getItem(SETTINGS_COLLAPSED_KEY);
+      if (settingsCollapsed === 'false') {
+        document.getElementById('settings-section').classList.remove('settings-expandable--collapsed');
+      }
+
       loadSettings().then(() => loadRoutes()); // Load settings first to get route_param
       setupEventListeners();
     });
@@ -943,6 +1566,9 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       document.getElementById('route-active-toggle').addEventListener('click', toggleActive);
       document.getElementById('logout-btn').addEventListener('click', logout);
 
+      // Settings expand/collapse toggle
+      document.getElementById('settings-toggle').addEventListener('click', toggleSettings);
+
       // Sanitize route ID input - only allow letters, numbers, hyphens
       document.getElementById('route-id').addEventListener('input', (e) => {
         const input = e.target;
@@ -955,19 +1581,26 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         input.value = input.value.replace(/^https?:\\/\\//i, '');
       });
 
-      // Close modal on overlay click
-      document.getElementById('route-modal').addEventListener('click', (e) => {
-        if (e.target.id === 'route-modal') closeModal();
-      });
+      // Close modal on overlay click (only if started and ended on overlay)
+      const setupOverlayClick = (id, closeFn) => {
+        const el = document.getElementById(id);
+        if (!el || el.dataset.overlayClickBound === '1') return;
+        el.dataset.overlayClickBound = '1';
+        let mousedownOnOverlay = false;
+        const handleMouseDown = (e) => { mousedownOnOverlay = (e.target === el); };
+        const handleClick = (e) => { if (mousedownOnOverlay && e.target === el) closeFn(); };
+        el.addEventListener('mousedown', handleMouseDown);
+        el.addEventListener('click', handleClick);
+      };
+
+      setupOverlayClick('route-modal', closeModal);
 
       // Purge cache modal handlers
       document.getElementById('purge-cache-btn').addEventListener('click', openPurgeModal);
       document.getElementById('close-purge-modal-btn').addEventListener('click', closePurgeModal);
       document.getElementById('cancel-purge-btn').addEventListener('click', closePurgeModal);
       document.getElementById('confirm-purge-btn').addEventListener('click', purgeCache);
-      document.getElementById('purge-modal').addEventListener('click', (e) => {
-        if (e.target.id === 'purge-modal') closePurgeModal();
-      });
+      setupOverlayClick('purge-modal', closePurgeModal);
 
       // Check if cache purging is available
       checkCachePurgeStatus();
@@ -979,9 +1612,14 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       document.getElementById('close-import-modal-btn').addEventListener('click', closeImportModal);
       document.getElementById('cancel-import-btn').addEventListener('click', closeImportModal);
       document.getElementById('confirm-import-btn').addEventListener('click', confirmImport);
-      document.getElementById('import-modal').addEventListener('click', (e) => {
-        if (e.target.id === 'import-modal') closeImportModal();
-      });
+      setupOverlayClick('import-modal', closeImportModal);
+    }
+
+    function toggleSettings() {
+      const section = document.getElementById('settings-section');
+      const isCollapsed = section.classList.contains('settings-expandable--collapsed');
+      section.classList.toggle('settings-expandable--collapsed');
+      localStorage.setItem(SETTINGS_COLLAPSED_KEY, String(!isCollapsed));
     }
 
     function logout() {
@@ -1025,6 +1663,11 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       const container = document.getElementById('routes-list');
       container.textContent = '';
 
+      // Update routes count in header
+      const routesCount = document.getElementById('routes-count');
+      const count = routes.length;
+      routesCount.textContent = count;
+
       if (routes.length === 0) {
         const div = document.createElement('div');
         div.className = 'empty-state';
@@ -1055,7 +1698,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
 
         const btn = document.createElement('button');
         btn.className = 'btn btn-primary';
-        btn.textContent = 'Add Redirect';
+        btn.textContent = 'Add redirect';
         btn.addEventListener('click', () => openModal());
         div.appendChild(btn);
 
@@ -1063,7 +1706,8 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         return;
       }
 
-      routes.forEach(route => {
+      // Show latest entries first (based on storage order)
+      [...routes].reverse().forEach(route => {
         const item = document.createElement('div');
         item.className = 'route-item';
 
@@ -1077,7 +1721,35 @@ export function getAdminHtml(basePath: string = '/admin'): string {
 
         const name = document.createElement('div');
         name.className = 'route-name';
-        name.textContent = route.id;
+
+        // Add toggle switch to the name
+        const toggle = document.createElement('div');
+        toggle.className = 'route-toggle ' + (route.active ? 'active' : 'inactive');
+        toggle.dataset.routeId = route.id;
+        toggle.dataset.active = route.active ? '1' : '0';
+        toggle.setAttribute('role', 'switch');
+        toggle.setAttribute('aria-checked', String(route.active));
+        toggle.setAttribute('aria-label', 'Toggle ' + route.id + ' redirect');
+        toggle.setAttribute('tabindex', '0');
+
+        // Add click handler for one-click toggle
+        toggle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleRouteStatus(route.id, toggle);
+        });
+        toggle.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggle.click();
+          }
+        });
+
+        name.appendChild(toggle);
+
+        const nameText = document.createElement('span');
+        nameText.textContent = route.id;
+        name.appendChild(nameText);
+
         info.appendChild(name);
 
         const url = document.createElement('div');
@@ -1087,56 +1759,170 @@ export function getAdminHtml(basePath: string = '/admin'): string {
 
         header.appendChild(info);
 
-        // Status badge
-        const status = document.createElement('div');
-        status.className = 'route-status ' + (route.active ? 'active' : 'inactive');
-
-        const dot = document.createElement('span');
-        dot.className = 'route-status-dot';
-        status.appendChild(dot);
-
-        const statusText = document.createTextNode(route.active ? 'Active' : 'Inactive');
-        status.appendChild(statusText);
-
-        header.appendChild(status);
-
         // Actions
-        const actions = document.createElement('div');
-        actions.className = 'route-actions';
+        const createActions = () => {
+          const actions = document.createElement('div');
+          actions.className = 'route-actions';
 
-        const editBtn = document.createElement('button');
-        editBtn.className = 'btn btn-secondary btn-sm';
-        editBtn.textContent = 'Edit';
-        editBtn.addEventListener('click', () => editRoute(route.id));
-        actions.appendChild(editBtn);
+          const editBtn = document.createElement('button');
+          editBtn.className = 'btn btn-secondary btn-sm';
+          editBtn.textContent = 'Edit';
+          editBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            editRoute(route.id);
+          });
+          actions.appendChild(editBtn);
 
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'btn btn-danger btn-sm';
-        deleteBtn.textContent = 'Delete';
-        deleteBtn.addEventListener('click', () => deleteRoute(route.id));
-        actions.appendChild(deleteBtn);
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'btn btn-danger btn-sm';
+          deleteBtn.textContent = 'Delete';
+          deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteRoute(route.id);
+          });
+          actions.appendChild(deleteBtn);
+          return actions;
+        };
 
-        header.appendChild(actions);
         item.appendChild(header);
 
-        // Sample link on its own row - extract placeholders from template
+        // Sample link wrapper logic
+        const linkWrapper = document.createElement('div');
+        linkWrapper.className = 'sample-link-wrapper';
+
         const sampleLink = document.createElement('a');
         sampleLink.className = 'route-sample-link';
         let sampleUrl = window.location.origin + '/?' + encodeURIComponent(currentRouteParam) + '=' + encodeURIComponent(route.id);
-        // Extract {placeholders} from template and add with dummy values
         const placeholders = (route.template.match(/\\{([^}]+)\\}/g) || [])
           .map(m => m.slice(1, -1))
-          .filter(p => p !== 'route'); // exclude {route} as it's auto-populated
+          .filter(p => p !== 'route'); 
         placeholders.forEach(param => {
           sampleUrl += '&' + encodeURIComponent(param) + '=YOUR_' + param.toUpperCase();
         });
         sampleLink.href = sampleUrl;
         sampleLink.target = '_blank';
         sampleLink.textContent = sampleUrl;
-        item.appendChild(sampleLink);
+        linkWrapper.appendChild(sampleLink);
+
+        // Copy button
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'copy-btn';
+        copyBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copy';
+        copyBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          copyToClipboard(sampleUrl, copyBtn);
+        });
+        linkWrapper.appendChild(copyBtn);
+
+        item.appendChild(linkWrapper);
+
+        // Actions row (DRY - appended once at the bottom for both mobile/desktop)
+        item.appendChild(createActions());
 
         container.appendChild(item);
       });
+    }
+
+    // One-click toggle route status
+    async function toggleRouteStatus(id, element) {
+      if (element.dataset.loading === '1') return;
+      const isActive = element.classList.contains('active');
+      const newStatus = !isActive;
+
+      const updateElementUI = (status) => {
+        element.classList.toggle('active', status);
+        element.classList.toggle('inactive', !status);
+        element.dataset.active = status ? '1' : '0';
+        element.setAttribute('aria-checked', String(status));
+      };
+
+      // Optimistic UI update
+      element.dataset.loading = '1';
+      updateElementUI(newStatus);
+
+      try {
+        const res = await fetch(API_BASE + '/routes/' + encodeURIComponent(id), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            active: newStatus
+          })
+        });
+
+        if (!res.ok) {
+          let errorMessage = 'Failed to update status';
+          try {
+            const errorData = await res.json();
+            if (errorData && typeof errorData.error === 'string') {
+              errorMessage = errorData.error;
+            }
+          } catch {
+            // Ignore JSON parse errors and keep default message.
+          }
+          throw new Error(errorMessage);
+        }
+
+        showToast('Route ' + id + ' is now ' + (newStatus ? 'active' : 'inactive'), 'success');
+
+        // Reload routes to ensure sync
+        await loadRoutes();
+      } catch (err) {
+        // Revert UI on error
+        console.error('Toggle failed:', err);
+        updateElementUI(isActive);
+        const message = err instanceof Error && err.message ? err.message : 'Failed to update route status';
+        showToast(message, 'error');
+      } finally {
+        element.dataset.loading = '0';
+      }
+    }
+
+    function copyToClipboard(text, btn) {
+      const originalHTML = btn.innerHTML;
+
+      const showCopied = () => {
+        btn.classList.add('copied');
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = originalHTML;
+        }, 2000);
+      };
+
+      const fallbackCopy = () => {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            showCopied();
+          } else {
+            showToast('Copy failed. Please copy manually.', 'error');
+          }
+        } catch (err) {
+          console.error('Fallback copy failed:', err);
+          showToast('Copy failed. Please copy manually.', 'error');
+        } finally {
+          document.body.removeChild(textArea);
+        }
+      };
+
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(showCopied).catch((err) => {
+          console.error('Failed to copy text:', err);
+          fallbackCopy();
+        });
+      } else {
+        fallbackCopy();
+      }
     }
 
     async function loadSettings() {
@@ -1193,7 +1979,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
       const toggle = document.getElementById('route-active-toggle');
 
       if (route) {
-        title.textContent = 'Edit Redirect';
+        title.textContent = 'Edit redirect';
         editMode.value = 'update';
         idInput.value = route.id;
         idInput.disabled = true;
@@ -1206,7 +1992,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
           toggle.classList.remove('active');
         }
       } else {
-        title.textContent = 'Add Redirect';
+        title.textContent = 'Add redirect';
         editMode.value = 'create';
         idInput.disabled = false;
         document.getElementById('route-form').reset();
@@ -1270,7 +2056,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         const url = editMode === 'update'
           ? API_BASE + '/routes/' + encodeURIComponent(id)
           : API_BASE + '/routes';
-        const method = editMode === 'update' ? 'PUT' : 'POST';
+        const method = editMode === 'update' ? 'PATCH' : 'POST';
 
         const res = await fetch(url, {
           method,
@@ -1303,7 +2089,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         const res = await fetch(API_BASE + '/purge-cache/status');
         const data = await res.json();
         if (data.available) {
-          document.getElementById('cache-purge-section').style.display = 'block';
+          document.getElementById('cache-purge-section').classList.add('cache-purge-section--visible');
         }
       } catch (err) {
         // Silently ignore - section stays hidden
@@ -1311,11 +2097,11 @@ export function getAdminHtml(basePath: string = '/admin'): string {
     }
 
     function openPurgeModal() {
-      document.getElementById('purge-modal').style.display = 'flex';
+      document.getElementById('purge-modal').classList.add('active');
     }
 
     function closePurgeModal() {
-      document.getElementById('purge-modal').style.display = 'none';
+      document.getElementById('purge-modal').classList.remove('active');
     }
 
     async function purgeCache() {
@@ -1337,7 +2123,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         // Show success feedback
         const section = document.getElementById('cache-purge-section');
         const successMsg = document.createElement('span');
-        successMsg.style.cssText = 'color: var(--primary); font-size: 13px; margin-left: 12px;';
+        successMsg.className = 'cache-purge-success';
         successMsg.textContent = '✓ Cache purged';
         section.querySelector('#purge-cache-btn').insertAdjacentElement('afterend', successMsg);
         setTimeout(() => successMsg.remove(), 3000);
@@ -1429,7 +2215,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
             (data.settings ? ' and settings.' : '.');
 
           // Open confirmation modal
-          document.getElementById('import-modal').style.display = 'flex';
+          document.getElementById('import-modal').classList.add('active');
         } catch (err) {
           console.error('Failed to parse JSON:', err);
           showToast('Invalid JSON file: ' + (err.message || 'Parse error'), 'error');
@@ -1442,7 +2228,7 @@ export function getAdminHtml(basePath: string = '/admin'): string {
     }
 
     function closeImportModal() {
-      document.getElementById('import-modal').style.display = 'none';
+      document.getElementById('import-modal').classList.remove('active');
       pendingImportData = null;
     }
 
@@ -1484,6 +2270,27 @@ export function getAdminHtml(basePath: string = '/admin'): string {
         btn.disabled = false;
       }
     }
+
+    // Scroll to Top functionality
+    const scrollToTopBtn = document.getElementById('scroll-to-top');
+    let scrollThreshold = 300; // Show after scrolling 300px
+
+    // Show/hide button on scroll
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > scrollThreshold) {
+        scrollToTopBtn.classList.add('visible');
+      } else {
+        scrollToTopBtn.classList.remove('visible');
+      }
+    });
+
+    // Scroll to top on click
+    scrollToTopBtn.addEventListener('click', () => {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    });
   </script>
 </body>
 </html>`;

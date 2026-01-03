@@ -13,7 +13,8 @@ function substituteTemplate(
   params: Record<string, string>
 ): string {
   return template.replace(/\{([^}]+)\}/g, (match, key) => {
-    return params[key] ?? match
+    const paramKey = String(key)
+    return params[paramKey] ?? match
   })
 }
 
@@ -106,7 +107,7 @@ export interface RedirectHandlerOptions {
 /**
  * Create redirect handler routes
  */
-export function createRedirectHandler(options: RedirectHandlerOptions) {
+export function createRedirectHandler(options: RedirectHandlerOptions): Hono {
   const app = new Hono()
   const { storage } = options
 
