@@ -57,16 +57,16 @@ export class JsonFileAdapter implements StorageAdapter {
     await this.saveFile(this.data)
   }
 
-  async getRoute(id: string): Promise<RouteConfig | null> {
-    return this.data.routes[id] || null
+  getRoute(id: string): Promise<RouteConfig | null> {
+    return Promise.resolve(this.data.routes[id] || null)
   }
 
-  async getAllRoutes(): Promise<StoredRoute[]> {
+  getAllRoutes(): Promise<StoredRoute[]> {
     const routes = Object.entries(this.data.routes).map(([id, config]) => ({
       ...config,
       id
     }))
-    return routes
+    return Promise.resolve(routes)
   }
 
   setRoute(id: string, config: RouteConfig): Promise<void> {
@@ -83,8 +83,8 @@ export class JsonFileAdapter implements StorageAdapter {
     return true
   }
 
-  async getSettings(): Promise<GlobalSettings> {
-    return this.data.settings || DEFAULT_SETTINGS
+  getSettings(): Promise<GlobalSettings> {
+    return Promise.resolve(this.data.settings || DEFAULT_SETTINGS)
   }
 
   setSettings(settings: GlobalSettings): Promise<void> {
