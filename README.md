@@ -62,7 +62,7 @@ docker pull ghcr.io/dima6312/gr8hopper:latest
 # Or pull a specific version
 docker pull ghcr.io/dima6312/gr8hopper:1.2.1
 
-# Run with Docker
+# Run with Docker (`ADMIN_USERNAME` and `ADMIN_PASSWORD` are required!)
 docker run -d --restart unless-stopped \
   -p 3000:3000 \
   -e ADMIN_USERNAME=your-username \
@@ -75,6 +75,8 @@ docker run -d --restart unless-stopped \
 docker compose up -d
 ```
 
+> **Important:** `ADMIN_USERNAME` and `ADMIN_PASSWORD` environment variables are **required**. The container will fail to start without them. Username cannot be 'admin' for security reasons.
+>
 > **Note:** Pre-built images are automatically published to GitHub Container Registry on each release. For building from source, see the [Deployment](#deployment) section.
 
 ### Cloudflare Workers (Recommended for production)
