@@ -26,7 +26,7 @@ function loadDevVars(): void {
 
   const nodeEnv = (process.env.NODE_ENV || '').toLowerCase()
   if (nodeEnv === 'production') {
-    console.warn(`[DevVars] .dev.vars found at ${devVarsPath} but NODE_ENV=production; skipping.`)
+    console.info(`[DevVars] .dev.vars found at ${devVarsPath} but NODE_ENV=production; skipping.`)
     return
   }
 
@@ -67,7 +67,7 @@ function loadDevVars(): void {
     return
   }
 
-  console.warn(`[DevVars] Loading environment variables from ${devVarsPath} (NODE_ENV=${envLabel}).`)
+  console.info(`[DevVars] Loading environment variables from ${devVarsPath} (NODE_ENV=${envLabel}).`)
   for (const [key, value] of Object.entries(parsedVars)) {
     process.env[key] = value
   }
@@ -106,8 +106,34 @@ if (!process.env.ADMIN_PASSWORD) {
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD
 
+// Reject generic 'admin' username for security
+if (ADMIN_USERNAME.toLowerCase() === 'admin') {
+  console.error(`
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ❌ FATAL: ADMIN_USERNAME cannot be 'admin'!                               ║
+║                                                                            ║
+║  Generic usernames are easy to brute-force. Please choose a unique         ║
+║  username for your admin panel.                                            ║
+╚════════════════════════════════════════════════════════════════════════════╝
+`)
+  process.exit(1)
+}
+
 // Create storage adapter
 const storage = new JsonFileAdapter(CONFIG_FILE)
+
+try {
+  await storage.init()
+} catch (error) {
+  const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+  console.error(`
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ❌ FATAL: Failed to initialize storage                                    ║
+╚════════════════════════════════════════════════════════════════════════════╝
+Error Detail: ${errorMessage}
+`)
+  process.exit(1)
+}
 
 // Create Hono app
 const app = new Hono()

@@ -12,6 +12,8 @@ wrangler.production.toml
 # Local config
 wrangler.toml
 routes.json
+Dockerfile
+docker-compose.yml
 
 # Environment files
 .env

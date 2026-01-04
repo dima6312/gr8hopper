@@ -1,4 +1,5 @@
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import type { StorageAdapter } from './adapter.js'
 import { DEFAULT_SETTINGS } from './adapter.js'
 import type { RouteConfig, GlobalSettings, StoredRoute, ConfigFile } from '../types.js'
@@ -7,36 +8,40 @@ import type { RouteConfig, GlobalSettings, StoredRoute, ConfigFile } from '../ty
  * JSON file storage adapter for VPS deployment
  */
 export class JsonFileAdapter implements StorageAdapter {
-  private data: ConfigFile
+  private data: ConfigFile = { routes: {}, settings: DEFAULT_SETTINGS }
 
   constructor(private filePath: string) {
-    this.data = this.loadFile()
+    // Initial data load is handled via await storage.init()
+    // In this simple case, we'll keep it as a placeholder and let it load on first use or in server.ts
   }
 
-  private loadFile(): ConfigFile {
-    if (!existsSync(this.filePath)) {
-      console.log(`[JsonFileAdapter] Config file not found at ${this.filePath}, creating with defaults`)
-      const defaultData: ConfigFile = {
-        routes: {},
-        settings: DEFAULT_SETTINGS
-      }
-      this.saveFile(defaultData)
-      return defaultData
-    }
+  async init(): Promise<void> {
+    this.data = await this.loadFile()
+  }
 
+  private async loadFile(): Promise<ConfigFile> {
     try {
-      const content = readFileSync(this.filePath, 'utf-8')
+      const content = await readFile(this.filePath, 'utf-8')
       return JSON.parse(content) as ConfigFile
     } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+        console.info(`[JsonFileAdapter] Config file not found at ${this.filePath}, creating with defaults`)
+        const defaultData: ConfigFile = { routes: {}, settings: DEFAULT_SETTINGS }
+        await this.saveFile(defaultData)
+        return defaultData
+      }
+      // Handle parse errors and other read errors
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       console.error(`[JsonFileAdapter] Failed to parse config file at ${this.filePath}: ${errorMessage}`)
       throw new Error(`Failed to load configuration file: ${errorMessage}`)
     }
   }
 
-  private saveFile(data: ConfigFile): void {
+  private async saveFile(data: ConfigFile): Promise<void> {
     try {
-      writeFileSync(this.filePath, JSON.stringify(data, null, 2), 'utf-8')
+      const dir = dirname(this.filePath)
+      await mkdir(dir, { recursive: true })
+      await writeFile(this.filePath, JSON.stringify(data, null, 2), 'utf-8')
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       console.error(`[JsonFileAdapter] Failed to save config file to ${this.filePath}: ${errorMessage}`)
@@ -44,47 +49,49 @@ export class JsonFileAdapter implements StorageAdapter {
     }
   }
 
-  private persist(): Promise<void> {
-    return Promise.resolve().then(() => {
-      this.saveFile(this.data)
-    })
+  private async persist(): Promise<void> {
+    await this.saveFile(this.data)
   }
 
-  getRoute(id: string): Promise<RouteConfig | null> {
-    return Promise.resolve(this.data.routes[id] || null)
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async getRoute(id: string): Promise<RouteConfig | null> {
+    return this.data.routes[id] || null
   }
 
-  getAllRoutes(): Promise<StoredRoute[]> {
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async getAllRoutes(): Promise<StoredRoute[]> {
     const routes = Object.entries(this.data.routes).map(([id, config]) => ({
       ...config,
       id
     }))
-    return Promise.resolve(routes)
+    return routes
   }
 
-  setRoute(id: string, config: RouteConfig): Promise<void> {
+  async setRoute(id: string, config: RouteConfig): Promise<void> {
     this.data.routes[id] = config
-    return this.persist()
+    await this.persist()
   }
 
-  deleteRoute(id: string): Promise<boolean> {
+  async deleteRoute(id: string): Promise<boolean> {
     if (!this.data.routes[id]) {
-      return Promise.resolve(false)
+      return false
     }
     delete this.data.routes[id]
-    return this.persist().then(() => true)
+    await this.persist()
+    return true
   }
 
-  getSettings(): Promise<GlobalSettings> {
-    return Promise.resolve(this.data.settings || DEFAULT_SETTINGS)
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async getSettings(): Promise<GlobalSettings> {
+    return this.data.settings || DEFAULT_SETTINGS
   }
 
-  setSettings(settings: GlobalSettings): Promise<void> {
+  async setSettings(settings: GlobalSettings): Promise<void> {
     this.data.settings = settings
-    return this.persist()
+    await this.persist()
   }
 
-  setRoutes(routes: Array<{ id: string; config: RouteConfig }>, clearExisting = false): Promise<void> {
+  async setRoutes(routes: Array<{ id: string; config: RouteConfig }>, clearExisting = false): Promise<void> {
     if (clearExisting) {
       this.data.routes = {}
     }
@@ -93,18 +100,18 @@ export class JsonFileAdapter implements StorageAdapter {
       this.data.routes[id] = config
     }
 
-    return this.persist()
+    await this.persist()
   }
 
-  deleteRoutes(ids: string[]): Promise<void> {
+  async deleteRoutes(ids: string[]): Promise<void> {
     for (const id of ids) {
       delete this.data.routes[id]
     }
-    return this.persist()
+    await this.persist()
   }
 
   /** Reload config from file (useful for hot-reloading) */
-  reload(): void {
-    this.data = this.loadFile()
+  async reload(): Promise<void> {
+    this.data = await this.loadFile()
   }
 }
