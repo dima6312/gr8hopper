@@ -1,5 +1,5 @@
 # Gr8hopper
-[![npm version](https://img.shields.io/npm/v/gr8hopper.svg)](https://www.npmjs.com/package/gr8hopper) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![npm version](https://img.shields.io/npm/v/gr8hopper.svg)](https://www.npmjs.com/package/gr8hopper) [![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue.svg)](https://github.com/dima6312/gr8hopper/pkgs/container/gr8hopper) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A lightweight, high-performance URL redirect service with configurable route templates. Deploy to Cloudflare Workers for global edge distribution or run on any VPS with Node.js/Bun.
 
@@ -53,6 +53,29 @@ npx gr8hopper
 > **Tip:** Variables set with `export` are temporary. For a persistent setup, add them to your shell profile (`.zshrc` or `.bashrc`), or run inline:
 > `ADMIN_USERNAME=user ADMIN_PASSWORD=pass npx gr8hopper`
 
+### Docker (Pre-built Image)
+
+```bash
+# Pull the latest image from GitHub Container Registry
+docker pull ghcr.io/dima6312/gr8hopper:latest
+
+# Or pull a specific version
+docker pull ghcr.io/dima6312/gr8hopper:1.2.1
+
+# Run with Docker
+docker run -d --restart unless-stopped \
+  -p 3000:3000 \
+  -e ADMIN_USERNAME=your-username \
+  -e ADMIN_PASSWORD=your-secure-password \
+  -v gr8hopper-data:/app/data \
+  --name gr8hopper \
+  ghcr.io/dima6312/gr8hopper:latest
+
+# Or use Docker Compose (create docker-compose.yml - see Deployment section)
+docker compose up -d
+```
+
+> **Note:** Pre-built images are automatically published to GitHub Container Registry on each release. For building from source, see the [Deployment](#deployment) section.
 
 ### Cloudflare Workers (Recommended for production)
 
