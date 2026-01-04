@@ -4,6 +4,9 @@
   "description": "A lightweight, portable URL redirect service with configurable templates",
   "type": "module",
   "main": "dist/server.js",
+  "bin": {
+    "gr8hopper": "dist/cli.js"
+  },
   "scripts": {
     "dev": "wrangler dev",
     "dev:node": "tsx watch src/server.ts",
@@ -15,7 +18,8 @@
     "import:routes": "node scripts/import-routes.cjs",
     "lint": "eslint src/ --max-warnings=0",
     "lint:fix": "eslint src/ --fix",
-    "prepare": "husky"
+    "prepare": "husky",
+    "prepublishOnly": "npm run build"
   },
   "lint-staged": {
     "src/**/*.{ts,js}": [
@@ -23,11 +27,26 @@
       "eslint --max-warnings=0"
     ]
   },
+  "files": [
+    "dist/",
+    "examples/",
+    "scripts/",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md"
+  ],
   "keywords": [
     "redirect",
     "url-shortener",
     "cloudflare-workers",
-    "hono"
+    "hono",
+    "url-redirect",
+    "link-management",
+    "affiliate-links",
+    "campaign-tracking",
+    "edge-computing",
+    "serverless",
+    "docker"
   ],
   "author": "Dmytro Kolyvai",
   "license": "MIT",

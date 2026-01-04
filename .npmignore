@@ -1,0 +1,52 @@
+# Source files (publish built dist/ instead)
+src/
+tsconfig.json
+
+# Development files
+.dev.vars
+.dev.vars.example
+wrangler.toml
+wrangler.toml.example
+wrangler.production.toml
+wrangler.production.toml.example
+.wrangler/
+
+# Local config and data
+routes.json
+data/
+Dockerfile
+docker-compose.yml
+.env
+.env.local
+.env.*.local
+
+# Git and CI
+.git/
+.github/
+.gitignore
+.husky/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temp files
+temp/
+.kv-bulk-import.json
+
+# Documentation (keep README.md, LICENSE, SECURITY.md)
+CLAUDE.md
+
+# Examples (include these)
+!examples/

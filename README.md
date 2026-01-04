@@ -31,6 +31,24 @@ A lightweight, high-performance URL redirect service with configurable route tem
 
 ## Quick Start
 
+### NPM Package (Easiest)
+
+```bash
+# Install globally
+npm install -g gr8hopper
+
+# Or install locally in your project
+npm install gr8hopper
+
+# Set environment variables
+export ADMIN_USERNAME=your-username
+export ADMIN_PASSWORD=your-secure-password
+
+# Run the server
+npx gr8hopper
+# Or if installed globally: gr8hopper
+```
+
 ### Cloudflare Workers (Recommended for production)
 
 ```bash
