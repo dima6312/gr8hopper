@@ -453,7 +453,7 @@ RUN npm run build
 FROM node:20-alpine
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
 # App will create this file inside the mounted volume
 ENV CONFIG_FILE=/app/data/routes.json

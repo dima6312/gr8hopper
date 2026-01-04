@@ -29,9 +29,12 @@ RUN npm ci --omit=dev
 # Copy built files from builder stage
 COPY --from=builder /app/dist ./dist
 
-# Create a non-root user for security
+# Create a non-root user and data directory
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S gr8hopper -u 1001 -G nodejs
+    adduser -S gr8hopper -u 1001 -G nodejs && \
+    mkdir -p /app/data && \
+    chown gr8hopper:nodejs /app/data
+
 USER gr8hopper
 
 # Set default environment variables

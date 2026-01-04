@@ -125,12 +125,12 @@ const storage = new JsonFileAdapter(CONFIG_FILE)
 try {
   await storage.init()
 } catch (error) {
+  const errorMessage = error instanceof Error ? error.message : 'Unknown error'
   console.error(`
 ╔════════════════════════════════════════════════════════════════════════════╗
 ║  ❌ FATAL: Failed to initialize storage                                    ║
-║                                                                            ║
-║  ${error instanceof Error ? error.message : 'Unknown error'}
 ╚════════════════════════════════════════════════════════════════════════════╝
+Error Detail: ${errorMessage}
 `)
   process.exit(1)
 }
