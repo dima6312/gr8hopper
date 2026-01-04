@@ -62,7 +62,7 @@ docker pull ghcr.io/dima6312/gr8hopper:latest
 # Or pull a specific version
 docker pull ghcr.io/dima6312/gr8hopper:1.2.1
 
-# Run with Docker (ADMIN_USERNAME and ADMIN_PASSWORD are required!)
+# Run with Docker (`ADMIN_USERNAME` and `ADMIN_PASSWORD` are required!)
 docker run -d --restart unless-stopped \
   -p 3000:3000 \
   -e ADMIN_USERNAME=your-username \
