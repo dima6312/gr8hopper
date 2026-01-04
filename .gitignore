@@ -14,6 +14,7 @@ wrangler.toml
 routes.json
 Dockerfile
 docker-compose.yml
+data/
 
 # Environment files
 .env

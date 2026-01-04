@@ -31,6 +31,28 @@ A lightweight, high-performance URL redirect service with configurable route tem
 
 ## Quick Start
 
+### NPM Package (Easiest)
+
+```bash
+# Install globally
+npm install -g gr8hopper
+
+# Or install locally in your project
+npm install gr8hopper
+
+# Set environment variables
+export ADMIN_USERNAME=your-username
+export ADMIN_PASSWORD=your-secure-password
+
+# Run the server
+npx gr8hopper
+# Or if installed globally: gr8hopper
+```
+
+> **Tip:** Variables set with `export` are temporary. For a persistent setup, add them to your shell profile (`.zshrc` or `.bashrc`), or run inline:
+> `ADMIN_USERNAME=user ADMIN_PASSWORD=pass npx gr8hopper`
+
+
 ### Cloudflare Workers (Recommended for production)
 
 ```bash
@@ -459,14 +481,28 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM node:20-alpine
+FROM node:20-alpine AS runner
+
 WORKDIR /app
+
 COPY package*.json ./
 RUN npm ci --omit=dev --ignore-scripts
+
 COPY --from=builder /app/dist ./dist
-# App will create this file inside the mounted volume
-ENV CONFIG_FILE=/app/data/routes.json
+
+# Create a non-root user and data directory
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S gr8hopper -u 1001 -G nodejs && \
+    mkdir -p /app/data && \
+    chown gr8hopper:nodejs /app/data
+
+USER gr8hopper
+
+# Set default environment variables
+ENV NODE_ENV=production
 ENV PORT=3000
+ENV CONFIG_FILE=/app/data/routes.json
+
 EXPOSE 3000
 CMD ["node", "dist/server.js"]
 ```
@@ -485,20 +521,41 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - ADMIN_USERNAME=gr8-manager
-      - ADMIN_PASSWORD=your-secure-password
+      # Required - will fail if not provided via .env file or shell
+      - ADMIN_USERNAME=${ADMIN_USERNAME:?ADMIN_USERNAME is required}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
+      # Optional settings
+      - ADMIN_PATH=${ADMIN_PATH:-admin}
       - CONFIG_FILE=/app/data/routes.json
+      - PORT=3000
     volumes:
-      - ./data:/app/data
+      # Use named volume to avoid permission issues with non-root user
+      - gr8hopper-data:/app/data
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))" ]
       interval: 30s
       timeout: 10s
       retries: 3
+
+volumes:
+  gr8hopper-data:
 ```
 
+> **Note:** Create a `.env` file with `ADMIN_USERNAME` and `ADMIN_PASSWORD` before running `docker compose up`. The compose file will fail if these are not set, preventing accidental deployment without credentials.
+
 ### Systemd (VPS)
+
+Create an environment file at `/etc/gr8hopper/.env`:
+
+```bash
+# /etc/gr8hopper/.env
+ADMIN_USERNAME=your-username
+ADMIN_PASSWORD=your-secure-password
+ADMIN_PATH=admin
+```
+
+Then create the systemd service:
 
 ```ini
 [Unit]
@@ -510,13 +567,28 @@ Type=simple
 User=www-data
 WorkingDirectory=/opt/gr8hopper
 ExecStart=/usr/bin/node dist/server.js
+EnvironmentFile=/etc/gr8hopper/.env
 Environment=PORT=3000
-Environment=ADMIN_USERNAME=your-username
-Environment=ADMIN_PASSWORD=your-secure-password
 Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
+```
+
+**Setup:**
+```bash
+# Create environment file directory
+sudo mkdir -p /etc/gr8hopper
+sudo nano /etc/gr8hopper/.env
+# Add your credentials, then save
+
+# Secure the environment file
+sudo chmod 600 /etc/gr8hopper/.env
+sudo chown www-data:www-data /etc/gr8hopper/.env
+
+# Enable and start the service
+sudo systemctl enable gr8hopper
+sudo systemctl start gr8hopper
 ```
 
 ### Nginx Reverse Proxy (VPS)

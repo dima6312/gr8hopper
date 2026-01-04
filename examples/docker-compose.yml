@@ -16,12 +16,15 @@ services:
       - ADMIN_PATH=${ADMIN_PATH:-admin}
       - PORT=3000
     volumes:
-      # Mount a 'data' directory for persistence.
-      # Docker will create this folder locally if it's missing.
-      - ./data:/app/data
+      # Use a named volume for data persistence to avoid permission issues
+      # with the non-root container user (gr8hopper:1001)
+      - gr8hopper-data:/app/data
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))" ]
       interval: 30s
       timeout: 10s
       retries: 3
+
+volumes:
+  gr8hopper-data:
