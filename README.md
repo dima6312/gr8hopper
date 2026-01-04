@@ -1,4 +1,5 @@
 # Gr8hopper
+[![npm version](https://img.shields.io/npm/v/gr8hopper.svg)](https://www.npmjs.com/package/gr8hopper) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A lightweight, high-performance URL redirect service with configurable route templates. Deploy to Cloudflare Workers for global edge distribution or run on any VPS with Node.js/Bun.
 
