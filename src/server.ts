@@ -106,9 +106,34 @@ if (!process.env.ADMIN_PASSWORD) {
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD
 
+// Reject generic 'admin' username for security
+if (ADMIN_USERNAME.toLowerCase() === 'admin') {
+  console.error(`
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ❌ FATAL: ADMIN_USERNAME cannot be 'admin'!                               ║
+║                                                                            ║
+║  Generic usernames are easy to brute-force. Please choose a unique         ║
+║  username for your admin panel.                                            ║
+╚════════════════════════════════════════════════════════════════════════════╝
+`)
+  process.exit(1)
+}
+
 // Create storage adapter
 const storage = new JsonFileAdapter(CONFIG_FILE)
-await storage.init()
+
+try {
+  await storage.init()
+} catch (error) {
+  console.error(`
+╔════════════════════════════════════════════════════════════════════════════╗
+║  ❌ FATAL: Failed to initialize storage                                    ║
+║                                                                            ║
+║  ${error instanceof Error ? error.message : 'Unknown error'}
+╚════════════════════════════════════════════════════════════════════════════╝
+`)
+  process.exit(1)
+}
 
 // Create Hono app
 const app = new Hono()

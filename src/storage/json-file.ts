@@ -12,7 +12,7 @@ export class JsonFileAdapter implements StorageAdapter {
   private data: ConfigFile = { routes: {}, settings: DEFAULT_SETTINGS }
 
   constructor(private filePath: string) {
-    // Initial data load is handled via await storage.init() or ähnlichem
+    // Initial data load is handled via await storage.init()
     // In this simple case, we'll keep it as a placeholder and let it load on first use or in server.ts
   }
 
@@ -44,9 +44,7 @@ export class JsonFileAdapter implements StorageAdapter {
   private async saveFile(data: ConfigFile): Promise<void> {
     try {
       const dir = dirname(this.filePath)
-      if (!existsSync(dir)) {
-        await mkdir(dir, { recursive: true })
-      }
+      await mkdir(dir, { recursive: true })
       await writeFile(this.filePath, JSON.stringify(data, null, 2), 'utf-8')
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -60,7 +58,7 @@ export class JsonFileAdapter implements StorageAdapter {
   }
 
   async getRoute(id: string): Promise<RouteConfig | null> {
-    return await Promise.resolve(this.data.routes[id] || null)
+    return this.data.routes[id] || null
   }
 
   async getAllRoutes(): Promise<StoredRoute[]> {
@@ -68,7 +66,7 @@ export class JsonFileAdapter implements StorageAdapter {
       ...config,
       id
     }))
-    return await Promise.resolve(routes)
+    return routes
   }
 
   setRoute(id: string, config: RouteConfig): Promise<void> {
@@ -86,7 +84,7 @@ export class JsonFileAdapter implements StorageAdapter {
   }
 
   async getSettings(): Promise<GlobalSettings> {
-    return await Promise.resolve(this.data.settings || DEFAULT_SETTINGS)
+    return this.data.settings || DEFAULT_SETTINGS
   }
 
   setSettings(settings: GlobalSettings): Promise<void> {

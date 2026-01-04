@@ -469,16 +469,24 @@ Create a `docker-compose.yml` in your root:
 ```yaml
 services:
   gr8hopper:
-    image: dima6312/gr8hopper:latest
+    build:
+      context: .
+      dockerfile: examples/Dockerfile
+    container_name: gr8hopper
     ports:
       - "3000:3000"
     environment:
-      - ADMIN_USERNAME=your-admin-user
+      - ADMIN_USERNAME=gr8-manager
       - ADMIN_PASSWORD=your-secure-password
       - CONFIG_FILE=/app/data/routes.json
     volumes:
       - ./data:/app/data
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 ```
 
 ### Systemd (VPS)
