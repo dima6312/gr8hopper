@@ -542,6 +542,17 @@ volumes:
 
 ### Systemd (VPS)
 
+Create an environment file at `/etc/gr8hopper/.env`:
+
+```bash
+# /etc/gr8hopper/.env
+ADMIN_USERNAME=your-username
+ADMIN_PASSWORD=your-secure-password
+ADMIN_PATH=admin
+```
+
+Then create the systemd service:
+
 ```ini
 [Unit]
 Description=Gr8hopper
@@ -552,13 +563,28 @@ Type=simple
 User=www-data
 WorkingDirectory=/opt/gr8hopper
 ExecStart=/usr/bin/node dist/server.js
+EnvironmentFile=/etc/gr8hopper/.env
 Environment=PORT=3000
-Environment=ADMIN_USERNAME=your-username
-Environment=ADMIN_PASSWORD=your-secure-password
 Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
+```
+
+**Setup:**
+```bash
+# Create environment file directory
+sudo mkdir -p /etc/gr8hopper
+sudo nano /etc/gr8hopper/.env
+# Add your credentials, then save
+
+# Secure the environment file
+sudo chmod 600 /etc/gr8hopper/.env
+sudo chown www-data:www-data /etc/gr8hopper/.env
+
+# Enable and start the service
+sudo systemctl enable gr8hopper
+sudo systemctl start gr8hopper
 ```
 
 ### Nginx Reverse Proxy (VPS)
