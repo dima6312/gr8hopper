@@ -53,16 +53,18 @@ export class JsonFileAdapter implements StorageAdapter {
     await this.saveFile(this.data)
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getRoute(id: string): Promise<RouteConfig | null> {
-    return await Promise.resolve(this.data.routes[id] || null)
+    return this.data.routes[id] || null
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getAllRoutes(): Promise<StoredRoute[]> {
     const routes = Object.entries(this.data.routes).map(([id, config]) => ({
       ...config,
       id
     }))
-    return await Promise.resolve(routes)
+    return routes
   }
 
   async setRoute(id: string, config: RouteConfig): Promise<void> {
@@ -79,8 +81,9 @@ export class JsonFileAdapter implements StorageAdapter {
     return true
   }
 
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getSettings(): Promise<GlobalSettings> {
-    return await Promise.resolve(this.data.settings || DEFAULT_SETTINGS)
+    return this.data.settings || DEFAULT_SETTINGS
   }
 
   async setSettings(settings: GlobalSettings): Promise<void> {

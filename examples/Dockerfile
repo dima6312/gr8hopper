@@ -40,6 +40,7 @@ USER gr8hopper
 # Set default environment variables
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV CONFIG_FILE=/app/data/routes.json
 
 # Expose the application port
 EXPOSE 3000
