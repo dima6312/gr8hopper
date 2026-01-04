@@ -49,6 +49,10 @@ npx gr8hopper
 # Or if installed globally: gr8hopper
 ```
 
+> **Tip:** Variables set with `export` are temporary. For a persistent setup, add them to your shell profile (`.zshrc` or `.bashrc`), or run inline:
+> `ADMIN_USERNAME=user ADMIN_PASSWORD=pass npx gr8hopper`
+
+
 ### Cloudflare Workers (Recommended for production)
 
 ```bash
