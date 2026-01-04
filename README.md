@@ -11,14 +11,23 @@ A lightweight, high-performance URL redirect service with configurable route tem
 - **Customizable**: Configure your own URL parameter name for cleaner redirect links.
 - **Minimal Footprint**: ~14KB framework (Hono), zero runtime dependencies beyond that.
 
+## Who Is This For?
+
+- **Email/SMS marketers** needing dynamic link personalization beyond platform limitations
+- **Agencies** managing multiple clients with centralized link control
+- **E-commerce teams** sending personalized product recommendations
+- **Developers** wanting self-hosted alternative to enterprise link management tools
+
 ## Use Cases
 
+- Email/SMS marketing with dynamic personalization (works with any ESP)
 - Affiliate link management
-- Multi-tenant redirects (route to different partners/vendors)
+- Multi-partner/vendor routing (route to different partners based on context)
 - Regional URL routing
 - Campaign tracking links
 - A/B testing traffic distribution
 - Personalized landing page routing
+- QR code campaigns with context-aware routing
 
 ## Quick Start
 
@@ -453,7 +462,7 @@ RUN npm run build
 FROM node:20-alpine
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 COPY --from=builder /app/dist ./dist
 # App will create this file inside the mounted volume
 ENV CONFIG_FILE=/app/data/routes.json
