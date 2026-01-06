@@ -1,7 +1,7 @@
 # gr8hopper
 
 [![GitHub Repo stars](https://img.shields.io/github/stars/dima6312/gr8hopper)](https://github.com/dima6312/gr8hopper)
-[![Docker Image](https://img.shields.io/docker/pulls/ghcr.io/dima6312/gr8hopper)](https://ghcr.io/dima6312/gr8hopper)
+[![Docker Image](https://img.shields.io/badge/ghcr.io-image-blue)](https://ghcr.io/dima6312/gr8hopper)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Lightweight, performance-first URL redirect service with an admin UI. Deploy to Cloudflare Workers (edge) or any VPS (Node.js/Bun/Docker).**
@@ -12,7 +12,7 @@ gr8hopper is built to handle **complex, parameter-driven routing logic** that st
 
 It simplifies scenarios where you need to route traffic to many different domains or destinations based on dynamic parameters, keeping your source data (like contact lists or CRM records) clean and your redirect logic centralized.
 
-While built for these advanced scenarios, **gr8hopper is also an excellent general-purpose redirector** due to its zero-dependency architecture, simple UI, and blazing fast edge performance.
+While built for these advanced scenarios, **gr8hopper is also an excellent general-purpose redirector** due to its minimal footprint, simple UI, and blazing fast edge performance.
 
 **Example:** You have a central link service (`links.yourapp.com`) and want to route users to different customer portals (`customer1.com`, `customer2.com`, etc.) or specific product paths. Instead of managing thousands of unique links in your CRM, you send one template: `links.yourapp.com?r=portal&c=123`. gr8hopper dynamically rewrites this to the correct destination.
 
@@ -31,7 +31,7 @@ While built for these advanced scenarios, **gr8hopper is also an excellent gener
 - **Parameter rewriting** (query → path, `{params}` substitution)
 - **Edge Efficiency** (Aggressive 301 caching)
 - **Standalone deployment** (Self-contained logic)
-- **Minimal Footprint** (Zero heavy runtime dependencies)
+- **Minimal Footprint** (Built on [Hono](https://hono.dev/): zero-dependency, ultra-lightweight web framework)
 
 ## gr8hopper vs other redirect tools
 
@@ -56,7 +56,7 @@ docker run -d --restart unless-stopped \
   ghcr.io/dima6312/gr8hopper:latest
 ```
 
-### Cloudflare Workers (zero‑cost production)
+### Cloudflare Workers (zero-cost production)
 See [Cloudflare Workers](#cloudflare-workers-recommended-for-production)
 
 ## How It Works
