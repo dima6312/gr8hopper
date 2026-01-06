@@ -1,68 +1,52 @@
-# Gr8hopper
-[![npm version](https://img.shields.io/npm/v/gr8hopper.svg)](https://www.npmjs.com/package/gr8hopper) [![Docker Image](https://img.shields.io/badge/docker-ghcr.io-blue.svg)](https://github.com/dima6312/gr8hopper/pkgs/container/gr8hopper) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+# gr8hopper
 
-A lightweight, high-performance URL redirect service with configurable route templates. Deploy to Cloudflare Workers for global edge distribution or run on any VPS with Node.js/Bun.
+[![GitHub Repo stars](https://img.shields.io/github/stars/dima6312/gr8hopper)](https://github.com/dima6312/gr8hopper)
+[![Docker Image](https://img.shields.io/badge/ghcr.io-image-blue)](https://ghcr.io/dima6312/gr8hopper)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Why Gr8hopper?
+**Lightweight, performance-first URL redirect service with an admin UI. Deploy to Cloudflare Workers (edge) or any VPS (Node.js/Bun/Docker).**
 
-- **High Performance**: Handles millions of requests through aggressive edge caching. First request per unique URL executes code; all subsequent requests are served from cache.
-- **Portable**: Single codebase runs on Cloudflare Workers (edge) or any VPS (Node.js/Bun).
-- **Flexible Templates**: Dynamic URL construction with `{param}` placeholders.
-- **Simple Admin**: Clean, user-friendly web interface for managing routes without touching code.
-- **Customizable**: Configure your own URL parameter name for cleaner redirect links.
-- **Minimal Footprint**: ~14KB framework (Hono), zero runtime dependencies beyond that.
+## Why gr8hopper?
 
-## Who Is This For?
+gr8hopper is built to handle **complex, parameter-driven routing logic** that standard redirectors or marketing platforms often find cumbersome to manage.
 
-- **Email/SMS marketers** needing dynamic link personalization beyond platform limitations
-- **Agencies** managing multiple clients with centralized link control
-- **E-commerce teams** sending personalized product recommendations
-- **Developers** wanting self-hosted alternative to enterprise link management tools
+It simplifies scenarios where you need to route traffic to many different domains or destinations based on dynamic parameters, keeping your source data (like contact lists or CRM records) clean and your redirect logic centralized.
 
-## Use Cases
+While built for these advanced scenarios, **gr8hopper is also an excellent general-purpose redirector** due to its minimal footprint, simple UI, and blazing fast edge performance.
 
-- Email/SMS marketing with dynamic personalization (works with any ESP)
-- Affiliate link management
-- Multi-partner/vendor routing (route to different partners based on context)
-- Regional URL routing
-- Campaign tracking links
-- A/B testing traffic distribution
-- Personalized landing page routing
-- QR code campaigns with context-aware routing
+**Example:** You have a central link service (`links.yourapp.com`) and want to route users to different customer portals (`customer1.com`, `customer2.com`, etc.) or specific product paths. Instead of managing thousands of unique links in your CRM, you send one template: `links.yourapp.com?r=portal&c=123`. gr8hopper dynamically rewrites this to the correct destination.
 
-## Quick Start
+**Use it if:**
+- You need flexible, parameter-driven routing (e.g., query params → path segments).
+- You want to centralize multi-domain redirection logic outside of your primary platform.
+- You want a tiny, self-hosted redirector without the bloat of other tools.
+- You want edge deployment (Cloudflare Workers) or lightweight self-hosting (Docker).
 
-### NPM Package (Easiest)
+**Don't use it if:**
+- You just want a basic URL shortener with click tracking (try Shlink or YOURLS).
+- You need full SaaS analytics (try Bitly or Rebrandly).
 
+## Features
+- **Admin UI** for managing routes
+- **Parameter rewriting** (query → path, `{params}` substitution)
+- **Edge Efficiency** (Aggressive 301 caching)
+- **Standalone deployment** (Self-contained logic)
+- **Minimal Footprint** (Built on [Hono](https://hono.dev/): zero-dependency, ultra-lightweight web framework)
+
+## gr8hopper vs other redirect tools
+
+| Tool | Multi-domain param routing | Edge (Workers) | Admin UI | Size/Deps |
+|------|----------------------------|----------------|----------|-----------|
+| gr8hopper | ✅ Core feature | ✅ Workers/Docker | ✅ Simple | Tiny (Minimal) |
+| Shlink | ❌ Basic shortener | ❌ | ✅ Full | Heavy |
+| re:Director | ❌ | ❌ | ✅ | Medium |
+| RedirHub | ❌ SaaS only | N/A | ✅ | N/A |
+| urllo | ❌ Paid SaaS | N/A | ✅ Advanced | N/A |
+
+## 🚀 Quick Start
+
+### Docker (easiest)
 ```bash
-# Install globally
-npm install -g gr8hopper
-
-# Or install locally in your project
-npm install gr8hopper
-
-# Set environment variables
-export ADMIN_USERNAME=your-username
-export ADMIN_PASSWORD=your-secure-password
-
-# Run the server
-npx gr8hopper
-# Or if installed globally: gr8hopper
-```
-
-> **Tip:** Variables set with `export` are temporary. For a persistent setup, add them to your shell profile (`.zshrc` or `.bashrc`), or run inline:
-> `ADMIN_USERNAME=user ADMIN_PASSWORD=pass npx gr8hopper`
-
-### Docker (Pre-built Image)
-
-```bash
-# Pull the latest image from GitHub Container Registry
-docker pull ghcr.io/dima6312/gr8hopper:latest
-
-# Or pull a specific version
-docker pull ghcr.io/dima6312/gr8hopper:1.2.1
-
-# Run with Docker (`ADMIN_USERNAME` and `ADMIN_PASSWORD` are required!)
 docker run -d --restart unless-stopped \
   -p 3000:3000 \
   -e ADMIN_USERNAME=your-username \
@@ -70,80 +54,10 @@ docker run -d --restart unless-stopped \
   -v gr8hopper-data:/app/data \
   --name gr8hopper \
   ghcr.io/dima6312/gr8hopper:latest
-
-# Or use Docker Compose (create docker-compose.yml - see Deployment section)
-docker compose up -d
 ```
 
-> **Important:** `ADMIN_USERNAME` and `ADMIN_PASSWORD` environment variables are **required**. The container will fail to start without them. Username cannot be 'admin' for security reasons.
->
-> **Note:** Pre-built images are automatically published to GitHub Container Registry on each release. For building from source, see the [Deployment](#deployment) section.
-
-### Cloudflare Workers (Recommended for production)
-
-```bash
-# Clone and install
-git clone https://github.com/your-org/gr8hopper.git
-cd gr8hopper
-npm install
-
-# Create KV namespace for storing routes
-npx wrangler kv namespace create ROUTES_KV
-# Copy the ID from output, then:
-cp wrangler.production.toml.example wrangler.production.toml
-# Edit wrangler.production.toml and replace "your-production-kv-namespace-id" with your actual ID
-
-# Set admin credentials (stored as encrypted secrets)
-npx wrangler secret put ADMIN_USERNAME
-npx wrangler secret put ADMIN_PASSWORD
-
-# Deploy to Cloudflare's global edge network
-npm run deploy
-```
-
-### Local Development (Cloudflare Workers)
-
-```bash
-# Copy the example configs for local dev
-cp wrangler.toml.example wrangler.toml
-cp .dev.vars.example .dev.vars
-
-# Edit wrangler.toml - set your KV namespace ID
-# Edit .dev.vars - set your ADMIN_PASSWORD (and optionally ADMIN_USERNAME)
-
-# Run local dev server
-npm run dev
-```
-
-> **Note:** `wrangler.toml` and `.dev.vars` are gitignored. The `.dev.vars` file overrides `wrangler.toml` `[vars]` for local development - this is where you set sensitive values like `ADMIN_PASSWORD`.
-
-### Node.js (VPS/Self-hosted)
-
-```bash
-# Clone and install
-git clone https://github.com/your-org/gr8hopper.git
-cd gr8hopper
-npm install
-
-# Configure environment (via export or .dev.vars file)
-export ADMIN_USERNAME=your-username
-export ADMIN_PASSWORD=your-secure-password
-export PORT=3000
-
-# Development (with hot reload)
-npm run dev:node
-
-# Production
-npm run build
-npm start
-```
-
-### Bun
-
-```bash
-bun install
-ADMIN_USERNAME=your-username ADMIN_PASSWORD=your-password bun run src/server.ts
-```
+### Cloudflare Workers (zero-cost production)
+See [Cloudflare Workers](#cloudflare-workers-recommended-for-production)
 
 ## How It Works
 
@@ -459,7 +373,7 @@ npm run import:routes /path/to/my-routes.json
 
 ## Deployment
 
-### Cloudflare Workers
+### Cloudflare Workers (Recommended for production)
 
 1. Create a KV namespace:
    ```bash
@@ -645,6 +559,46 @@ server {
 }
 ```
 
+
+### NPM Package (Global Install)
+
+```bash
+# Install globally
+npm install -g gr8hopper
+
+# Set environment variables
+export ADMIN_USERNAME=your-username
+export ADMIN_PASSWORD=your-secure-password
+
+# Run the server
+npx gr8hopper
+```
+
+### Node.js (Source)
+
+```bash
+# Clone and install
+git clone https://github.com/dima6312/gr8hopper.git
+cd gr8hopper
+npm install
+
+# Configure environment
+export ADMIN_USERNAME=your-username
+export ADMIN_PASSWORD=your-secure-password
+export PORT=3000
+
+# Production
+npm run build
+npm start
+```
+
+### Bun
+
+```bash
+bun install
+ADMIN_USERNAME=your-username ADMIN_PASSWORD=your-password bun run src/server.ts
+```
+
 ## Security
 
 - Admin endpoints require HTTP Basic Authentication
@@ -688,6 +642,20 @@ server {
     }
 }
 ```
+
+## Good to Know
+
+### Why no click tracking/analytics?
+gr8hopper is designed to be a **high-performance router**, not a marketing analytics platform. By not storing every click in a database, we achieve:
+1. **Sub-ms performance**: CDN-cached redirects never hit our code.
+2. **Zero Maintenance**: No database to scale or clean up.
+3. **Data Privacy**: We don't track user IPs or behavior.
+
+*Tip: Use UTM parameters in your destination templates to track attribution in Google Analytics, Plausible, or your internal tools.*
+
+### Propagation & Caching
+- **KV Consistency**: When using Cloudflare Workers, changes in the Admin UI may take up to **60 seconds** to propagate globally across all edge locations.
+- **Browser Caching**: By default, gr8hopper sends `301 Moved Permanently`. Browsers cache these aggressively. For testing, use Incognito mode or a tool like `curl`.
 
 ## License
 
