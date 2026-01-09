@@ -3,6 +3,7 @@ import { dirname } from 'node:path'
 import type { StorageAdapter } from './adapter.js'
 import { DEFAULT_SETTINGS } from './adapter.js'
 import type { RouteConfig, GlobalSettings, StoredRoute, ConfigFile } from '../types.js'
+import { isPattern } from '../utils/pattern.js'
 
 /**
  * JSON file storage adapter for VPS deployment
@@ -53,11 +54,6 @@ export class JsonFileAdapter implements StorageAdapter {
     await this.saveFile(this.data)
   }
 
-  private isPattern(id: string): boolean {
-    // Pattern if it contains `{`, `*`, `?`, or `:` (includes `**` and `:param`)
-    return id.includes('{') || id.includes('*') || id.includes('?') || id.includes(':')
-  }
-
   // eslint-disable-next-line @typescript-eslint/require-await
   async getRoute(id: string): Promise<RouteConfig | null> {
     return this.data.routes[id] || null
@@ -75,7 +71,7 @@ export class JsonFileAdapter implements StorageAdapter {
   // eslint-disable-next-line @typescript-eslint/require-await
   async getPatternRoutes(): Promise<StoredRoute[]> {
     const routes = Object.entries(this.data.routes)
-      .filter(([id]) => this.isPattern(id))
+      .filter(([id]) => isPattern(id))
       .map(([id, config]) => ({
         ...config,
         id

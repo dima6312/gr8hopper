@@ -1806,6 +1806,7 @@ export function getAdminHtml(basePath: string = '/admin', version: string = 'dev
         sampleLink.className = 'route-sample-link';
         
         // Detect if this is a pattern route (contains {, *, ?, or :)
+        // NOTE: This logic is duplicated from src/utils/pattern.ts and must be kept in sync.
         const isPatternRoute = route.id.includes('{') || route.id.includes('*') || route.id.includes('?') || route.id.includes(':');
         
         let sampleUrl;

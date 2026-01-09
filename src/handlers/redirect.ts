@@ -4,6 +4,7 @@ import type { GlobalSettings, RouteConfig, StoredRoute } from '../types.js'
 import { sanitizeRouteId } from '../utils/sanitize.js'
 import { DANGEROUS_SCHEMES } from '../utils/validation.js'
 import { matchRoute, getPatternParamNames } from '../utils/matcher.js'
+import { isPattern } from '../utils/pattern.js'
 
 /**
  * Substitute placeholders in template with values.
@@ -358,8 +359,7 @@ export function createRedirectHandler(options: RedirectHandlerOptions): Hono {
           try {
             const patterns = typeof storage.getPatternRoutes === 'function'
               ? await storage.getPatternRoutes()
-              : (await storage.getAllRoutes()).filter((route) =>
-                route.id.includes('{') || route.id.includes('*') || route.id.includes('?') || route.id.includes(':'))
+              : (await storage.getAllRoutes()).filter((route) => isPattern(route.id))
 
             patterns.sort((a, b) => getPatternScore(b.id) - getPatternScore(a.id))
             cachedPatterns = patterns

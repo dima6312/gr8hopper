@@ -1,6 +1,7 @@
 import type { StorageAdapter } from './adapter.js'
 import { DEFAULT_SETTINGS } from './adapter.js'
 import type { RouteConfig, GlobalSettings, StoredRoute } from '../types.js'
+import { isPattern } from '../utils/pattern.js'
 
 export const ROUTE_PREFIX = 'route:'
 export const SETTINGS_KEY = 'settings:global'
@@ -62,7 +63,7 @@ export class KVAdapter implements StorageAdapter {
     // Handle null (missing key) - lazy rebuild
     if (data === null) {
       console.info('[KV] Pattern index missing, rebuilding from all routes...')
-      const patterns = (await this.getAllRoutes()).filter(r => this.isPattern(r.id))
+      const patterns = (await this.getAllRoutes()).filter(r => isPattern(r.id))
       // Always write the index (even when empty) to prevent repeated expensive rebuilds
       await this.kv.put(ROUTE_PATTERNS_KEY, JSON.stringify(patterns))
       return patterns
@@ -70,17 +71,12 @@ export class KVAdapter implements StorageAdapter {
 
     // Handle legacy string[] format (older KV data or pre-migration import)
     if (data.length > 0 && data.some(item => typeof item === 'string')) {
-      const patterns = (await this.getAllRoutes()).filter(r => this.isPattern(r.id))
+      const patterns = (await this.getAllRoutes()).filter(r => isPattern(r.id))
       await this.kv.put(ROUTE_PATTERNS_KEY, JSON.stringify(patterns))
       return patterns
     }
 
     return (data as StoredRoute[]) || []
-  }
-
-  private isPattern(id: string): boolean {
-    // Pattern if it contains `{`, `*`, `?`, or `:` (includes `**` and `:param`)
-    return id.includes('{') || id.includes('*') || id.includes('?') || id.includes(':')
   }
 
   /**
@@ -101,7 +97,7 @@ export class KVAdapter implements StorageAdapter {
 
     // Update patterns data
     // We store the full StoredRoute object for pattern routes to avoid N+1 reads
-    if (this.isPattern(id)) {
+    if (isPattern(id)) {
       const patterns = await this.getPatternRoutes()
       const existingIndex = patterns.findIndex(p => p.id === id)
 
@@ -132,7 +128,7 @@ export class KVAdapter implements StorageAdapter {
     }
 
     // Update patterns data
-    if (this.isPattern(id)) {
+    if (isPattern(id)) {
       const patterns = await this.getPatternRoutes()
       const newPatterns = patterns.filter((p) => p.id !== id)
       if (patterns.length !== newPatterns.length) {
@@ -204,7 +200,7 @@ export class KVAdapter implements StorageAdapter {
     const existingPatterns = clearExisting ? [] : await this.getPatternRoutes()
     const existingPatternMap = new Map(existingPatterns.map(route => [route.id, route]))
     const patternRoutes = newIndex
-      .filter(id => this.isPattern(id))
+      .filter(id => isPattern(id))
       .map(id => {
         const config = importedRoutes.get(id)
         if (config) {

@@ -277,6 +277,10 @@ function validateQueryString(queryString) {
 
 /**
  * Determine whether a route ID is a pattern (matching storage adapters).
+ * 
+ * NOTE: This is intentionally duplicated from src/utils/pattern.ts because
+ * this CommonJS script cannot import ES modules. Keep in sync with the
+ * canonical implementation in src/utils/pattern.ts.
  */
 function isPattern(id) {
   return id.includes('{') || id.includes('*') || id.includes('?') || id.includes(':')
