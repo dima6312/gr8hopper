@@ -2,9 +2,12 @@
 
 [![GitHub Repo stars](https://img.shields.io/github/stars/dima6312/gr8hopper)](https://github.com/dima6312/gr8hopper)
 [![Docker Image](https://img.shields.io/badge/ghcr.io-image-blue)](https://ghcr.io/dima6312/gr8hopper)
+[![Wiki](https://img.shields.io/badge/docs-wiki-brightgreen)](https://dima6312.github.io/gr8hopper/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Lightweight, performance-first URL redirect service with an admin UI. Deploy to Cloudflare Workers (edge) or any VPS (Node.js/Bun/Docker).**
+
+Looking for detailed guides? Check out the **[Full Wiki Documentation](https://dima6312.github.io/gr8hopper/)**.
 
 ## Why gr8hopper?
 
