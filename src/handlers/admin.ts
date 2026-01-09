@@ -79,8 +79,8 @@ export function createAdminHandler(options: AdminHandlerOptions): Hono {
     }
   })
 
-  // Get single route - :id for simple routes
-  app.get('/routes/:id', async (c) => {
+  // Get single route handler (shared between :id and wildcard patterns)
+  const getSingleRoute = async (c: Context): Promise<Response> => {
     const id = getRouteIdFromRequest(c)
     if (!id) {
       return c.json({ error: 'Route ID is required' }, 400)
@@ -98,28 +98,11 @@ export function createAdminHandler(options: AdminHandlerOptions): Hono {
       console.error('[Admin] Failed to get route:', error)
       return c.json({ error: 'Failed to retrieve route' }, 500)
     }
-  })
+  }
 
-  // Get single route - wildcard catches pattern routes containing slashes (e.g., "shop/{id}")
-  app.get('/routes/*', async (c) => {
-    const id = getRouteIdFromRequest(c)
-    if (!id) {
-      return c.json({ error: 'Route ID is required' }, 400)
-    }
-
-    try {
-      const route = await storage.getRoute(id)
-
-      if (!route) {
-        return c.json({ error: 'Route not found' }, 404)
-      }
-
-      return c.json({ id, ...route })
-    } catch (error) {
-      console.error('[Admin] Failed to get route:', error)
-      return c.json({ error: 'Failed to retrieve route' }, 500)
-    }
-  })
+  // Register GET for both :id (simple routes) and * (pattern routes with slashes)
+  app.get('/routes/:id', getSingleRoute)
+  app.get('/routes/*', getSingleRoute)
 
   // Create/update route
   app.post('/routes', async (c) => {
@@ -154,8 +137,8 @@ export function createAdminHandler(options: AdminHandlerOptions): Hono {
     }
   })
 
-  // Update route - :id for simple routes
-  app.patch('/routes/:id', async (c) => {
+  // Update route handler (shared between :id and wildcard patterns)
+  const updateRoute = async (c: Context): Promise<Response> => {
     const id = getRouteIdFromRequest(c)
     if (!id) {
       return c.json({ error: 'Route ID is required' }, 400)
@@ -189,47 +172,14 @@ export function createAdminHandler(options: AdminHandlerOptions): Hono {
       console.error('[Admin] Failed to update route:', error)
       return c.json({ error: 'Failed to update route' }, 500)
     }
-  })
+  }
 
-  // Update route - wildcard catches pattern routes containing slashes
-  app.patch('/routes/*', async (c) => {
-    const id = getRouteIdFromRequest(c)
-    if (!id) {
-      return c.json({ error: 'Route ID is required' }, 400)
-    }
+  // Register PATCH for both :id (simple routes) and * (pattern routes with slashes)
+  app.patch('/routes/:id', updateRoute)
+  app.patch('/routes/*', updateRoute)
 
-    let body: unknown
-    try {
-      body = await c.req.json()
-    } catch {
-      return c.json({ error: 'Invalid JSON' }, 400)
-    }
-
-    try {
-      const existing = await storage.getRoute(id)
-
-      if (!existing) {
-        return c.json({ error: 'Route not found' }, 404)
-      }
-
-      const patch = validateRoutePatch(body)
-      if (!patch) {
-        return c.json({ error: 'Invalid route configuration' }, 400)
-      }
-
-      // Merge existing with updates (partial update support)
-      const merged: RouteConfig = { ...existing, ...patch }
-
-      await storage.setRoute(id, merged)
-      return c.json({ id, ...merged })
-    } catch (error) {
-      console.error('[Admin] Failed to update route:', error)
-      return c.json({ error: 'Failed to update route' }, 500)
-    }
-  })
-
-  // Delete route - :id for simple routes
-  app.delete('/routes/:id', async (c) => {
+  // Delete route handler (shared between :id and wildcard patterns)
+  const deleteRoute = async (c: Context): Promise<Response> => {
     const id = getRouteIdFromRequest(c)
     if (!id) {
       return c.json({ error: 'Route ID is required' }, 400)
@@ -247,28 +197,11 @@ export function createAdminHandler(options: AdminHandlerOptions): Hono {
       console.error('[Admin] Failed to delete route:', error)
       return c.json({ error: 'Failed to delete route' }, 500)
     }
-  })
+  }
 
-  // Delete route - wildcard catches pattern routes containing slashes
-  app.delete('/routes/*', async (c) => {
-    const id = getRouteIdFromRequest(c)
-    if (!id) {
-      return c.json({ error: 'Route ID is required' }, 400)
-    }
-
-    try {
-      const deleted = await storage.deleteRoute(id)
-
-      if (!deleted) {
-        return c.json({ error: 'Route not found' }, 404)
-      }
-
-      return c.json({ deleted: true, id })
-    } catch (error) {
-      console.error('[Admin] Failed to delete route:', error)
-      return c.json({ error: 'Failed to delete route' }, 500)
-    }
-  })
+  // Register DELETE for both :id (simple routes) and * (pattern routes with slashes)
+  app.delete('/routes/:id', deleteRoute)
+  app.delete('/routes/*', deleteRoute)
 
   // Get global settings
   app.get('/settings', async (c) => {

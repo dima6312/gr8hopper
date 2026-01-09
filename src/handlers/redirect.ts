@@ -247,6 +247,11 @@ export function createRedirectHandler(options: RedirectHandlerOptions): Hono {
   const app = new Hono()
   const { storage } = options
 
+  // Health check endpoint for monitoring and load balancers
+  app.get('/health', (c) => {
+    return c.json({ status: 'ok', timestamp: new Date().toISOString() })
+  })
+
   // Pattern cache to avoid re-sorting on every request
   let cachedPatterns: StoredRoute[] | null = null
   let cacheTimestamp = 0

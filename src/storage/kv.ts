@@ -63,9 +63,8 @@ export class KVAdapter implements StorageAdapter {
     if (data === null) {
       console.info('[KV] Pattern index missing, rebuilding from all routes...')
       const patterns = (await this.getAllRoutes()).filter(r => this.isPattern(r.id))
-      if (patterns.length > 0) {
-        await this.kv.put(ROUTE_PATTERNS_KEY, JSON.stringify(patterns))
-      }
+      // Always write the index (even when empty) to prevent repeated expensive rebuilds
+      await this.kv.put(ROUTE_PATTERNS_KEY, JSON.stringify(patterns))
       return patterns
     }
 

@@ -1585,7 +1585,7 @@ export function getAdminHtml(basePath: string = '/admin', version: string = 'dev
       // Strip http:// or https:// from destination URL (we prepend https:// on save)
       document.getElementById('route-template').addEventListener('input', (e) => {
         const input = e.target;
-        input.value = input.value.replace(/^https?:\\/\\/\\//i, '');
+        input.value = input.value.replace(/^https?:\\/\\//i, '');
       });
 
       // Close modal on overlay click (only if started and ended on overlay)
@@ -2091,7 +2091,8 @@ export function getAdminHtml(basePath: string = '/admin', version: string = 'dev
         editMode.value = 'update';
         idInput.value = route.id;
         idInput.disabled = true;
-      document.getElementById('route-template').value = route.template;
+        // Strip https:// prefix for display (we prepend it on save)
+        document.getElementById('route-template').value = route.template.replace(/^https?:\\/\\//i, '');
 
         if (route.active) {
           toggle.classList.add('active');
