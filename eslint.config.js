@@ -56,6 +56,14 @@ export default tseslint.config(
         },
     },
     {
+        // admin-html.ts contains embedded JavaScript in template literals
+        // Regex patterns inside strings trigger false positives for no-useless-escape
+        files: ['**/admin-html.ts'],
+        rules: {
+            'no-useless-escape': 'off',
+        },
+    },
+    {
         ignores: ['dist/**', 'node_modules/**', 'scripts/**', '*.cjs'],
     }
 );

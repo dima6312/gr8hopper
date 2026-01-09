@@ -2,18 +2,27 @@ import type { StorageAdapter } from './adapter.js'
 import { DEFAULT_SETTINGS } from './adapter.js'
 import type { RouteConfig, GlobalSettings, StoredRoute } from '../types.js'
 
-const ROUTE_PREFIX = 'route:'
-const SETTINGS_KEY = 'settings:global'
-const ROUTE_INDEX_KEY = 'routes:index'
+export const ROUTE_PREFIX = 'route:'
+export const SETTINGS_KEY = 'settings:global'
+export const ROUTE_INDEX_KEY = 'routes:index'
+export const ROUTE_PATTERNS_KEY = 'routes:patterns'
 
 /**
- * Cloudflare KV storage adapter with settings caching
+ * Cloudflare KV storage adapter with settings caching.
+ * 
+ * ⚠️ CONCURRENCY NOTE: KV does not support transactions. Read-modify-write
+ * operations on indexes (routes:index, routes:patterns) may lose updates if
+ * multiple admins edit routes simultaneously. Consider serializing edits or
+ * using import/export for batch updates in high-concurrency scenarios.
+ * 
+ * ⚠️ CACHE NOTE: Settings are shallow-cloned. If adding nested objects to
+ * GlobalSettings in the future, implement deep cloning in getSettings/setSettings.
  */
 export class KVAdapter implements StorageAdapter {
   private settingsCache: { settings: GlobalSettings; timestamp: number } | null = null
   private static readonly SETTINGS_CACHE_TTL = 5000 // 5 seconds
 
-  constructor(private kv: KVNamespace) {}
+  constructor(private kv: KVNamespace) { }
 
   async getRoute(id: string): Promise<RouteConfig | null> {
     const data = await this.kv.get(`${ROUTE_PREFIX}${id}`, 'json')
@@ -28,6 +37,8 @@ export class KVAdapter implements StorageAdapter {
     }
 
     // Fetch all routes in parallel
+    // Note: For very large indexes (>100 routes), this may hit sub-request limits.
+    // However, the admin UI is the primary consumer of getAllRoutes.
     const routes = await Promise.all(
       index.map(async (id) => {
         const config = await this.getRoute(id)
@@ -41,15 +52,67 @@ export class KVAdapter implements StorageAdapter {
     return routes.filter((r): r is StoredRoute => r !== null)
   }
 
+  /**
+   * Optimized: Fetches all pattern routes in a single KV read.
+   * This is critical for performance as it's called on every request.
+   */
+  async getPatternRoutes(): Promise<StoredRoute[]> {
+    const data = await this.kv.get<StoredRoute[] | string[]>(ROUTE_PATTERNS_KEY, 'json')
+
+    // Handle null (missing key) - lazy rebuild
+    if (data === null) {
+      console.info('[KV] Pattern index missing, rebuilding from all routes...')
+      const patterns = (await this.getAllRoutes()).filter(r => this.isPattern(r.id))
+      if (patterns.length > 0) {
+        await this.kv.put(ROUTE_PATTERNS_KEY, JSON.stringify(patterns))
+      }
+      return patterns
+    }
+
+    // Handle legacy string[] format (older KV data or pre-migration import)
+    if (data.length > 0 && data.some(item => typeof item === 'string')) {
+      const patterns = (await this.getAllRoutes()).filter(r => this.isPattern(r.id))
+      await this.kv.put(ROUTE_PATTERNS_KEY, JSON.stringify(patterns))
+      return patterns
+    }
+
+    return (data as StoredRoute[]) || []
+  }
+
+  private isPattern(id: string): boolean {
+    // Pattern if it contains `{`, `*`, `?`, or `:` (includes `**` and `:param`)
+    return id.includes('{') || id.includes('*') || id.includes('?') || id.includes(':')
+  }
+
+  /**
+   * ⚠️ CONCURRENCY WARNING: KV does not support transactions.
+   * Read-modify-write on indexes may cause lost updates if multiple admins 
+   * edit routes simultaneously.
+   */
   async setRoute(id: string, config: RouteConfig): Promise<void> {
-    // Update route
+    // Update route data
     await this.kv.put(`${ROUTE_PREFIX}${id}`, JSON.stringify(config))
 
-    // Update index
+    // Update main index
     const index = (await this.kv.get<string[]>(ROUTE_INDEX_KEY, 'json')) || []
     if (!index.includes(id)) {
       index.push(id)
       await this.kv.put(ROUTE_INDEX_KEY, JSON.stringify(index))
+    }
+
+    // Update patterns data
+    // We store the full StoredRoute object for pattern routes to avoid N+1 reads
+    if (this.isPattern(id)) {
+      const patterns = await this.getPatternRoutes()
+      const existingIndex = patterns.findIndex(p => p.id === id)
+
+      const routeData: StoredRoute = { ...config, id }
+      if (existingIndex >= 0) {
+        patterns[existingIndex] = routeData
+      } else {
+        patterns.push(routeData)
+      }
+      await this.kv.put(ROUTE_PATTERNS_KEY, JSON.stringify(patterns))
     }
   }
 
@@ -62,10 +125,21 @@ export class KVAdapter implements StorageAdapter {
     // Delete route
     await this.kv.delete(`${ROUTE_PREFIX}${id}`)
 
-    // Update index
+    // Update main index
     const index = (await this.kv.get<string[]>(ROUTE_INDEX_KEY, 'json')) || []
     const newIndex = index.filter((i) => i !== id)
-    await this.kv.put(ROUTE_INDEX_KEY, JSON.stringify(newIndex))
+    if (index.length !== newIndex.length) {
+      await this.kv.put(ROUTE_INDEX_KEY, JSON.stringify(newIndex))
+    }
+
+    // Update patterns data
+    if (this.isPattern(id)) {
+      const patterns = await this.getPatternRoutes()
+      const newPatterns = patterns.filter((p) => p.id !== id)
+      if (patterns.length !== newPatterns.length) {
+        await this.kv.put(ROUTE_PATTERNS_KEY, JSON.stringify(newPatterns))
+      }
+    }
 
     return true
   }
@@ -111,18 +185,37 @@ export class KVAdapter implements StorageAdapter {
       )
     )
 
-    // Build new index - if clearExisting, just use new route IDs; otherwise merge
+    // Build new indexes
     let newIndex: string[]
+    const routeIds = routes.map(r => r.id)
+
     if (clearExisting) {
-      newIndex = routes.map(r => r.id)
+      newIndex = routeIds
     } else {
       const existingIndex = (await this.kv.get<string[]>(ROUTE_INDEX_KEY, 'json')) || []
-      const newIds = new Set(routes.map(r => r.id))
-      // Keep existing IDs that aren't being replaced, add new IDs
-      newIndex = [...existingIndex.filter(id => !newIds.has(id)), ...routes.map(r => r.id)]
+      const newIdsSet = new Set(routeIds)
+      newIndex = [...existingIndex.filter(id => !newIdsSet.has(id)), ...routeIds]
     }
 
     await this.kv.put(ROUTE_INDEX_KEY, JSON.stringify(newIndex))
+
+    // Efficiently rebuild patterns data from input (avoids N+1 KV reads)
+    // Preserve existing pattern configs when clearExisting is false.
+    const importedRoutes = new Map(routes.map(r => [r.id, r.config]))
+    const existingPatterns = clearExisting ? [] : await this.getPatternRoutes()
+    const existingPatternMap = new Map(existingPatterns.map(route => [route.id, route]))
+    const patternRoutes = newIndex
+      .filter(id => this.isPattern(id))
+      .map(id => {
+        const config = importedRoutes.get(id)
+        if (config) {
+          return { ...config, id }
+        }
+        const existing = existingPatternMap.get(id)
+        return existing || null
+      })
+      .filter((p): p is StoredRoute => p !== null)
+    await this.kv.put(ROUTE_PATTERNS_KEY, JSON.stringify(patternRoutes))
   }
 
   async deleteRoutes(ids: string[]): Promise<void> {
@@ -138,5 +231,10 @@ export class KVAdapter implements StorageAdapter {
     const idsToDelete = new Set(ids)
     const newIndex = existingIndex.filter(id => !idsToDelete.has(id))
     await this.kv.put(ROUTE_INDEX_KEY, JSON.stringify(newIndex))
+
+    // Update patterns data
+    const existingPatterns = await this.getPatternRoutes()
+    const newPatterns = existingPatterns.filter(p => !idsToDelete.has(p.id))
+    await this.kv.put(ROUTE_PATTERNS_KEY, JSON.stringify(newPatterns))
   }
 }

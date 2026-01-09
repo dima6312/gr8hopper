@@ -53,6 +53,11 @@ export class JsonFileAdapter implements StorageAdapter {
     await this.saveFile(this.data)
   }
 
+  private isPattern(id: string): boolean {
+    // Pattern if it contains `{`, `*`, `?`, or `:` (includes `**` and `:param`)
+    return id.includes('{') || id.includes('*') || id.includes('?') || id.includes(':')
+  }
+
   // eslint-disable-next-line @typescript-eslint/require-await
   async getRoute(id: string): Promise<RouteConfig | null> {
     return this.data.routes[id] || null
@@ -64,6 +69,17 @@ export class JsonFileAdapter implements StorageAdapter {
       ...config,
       id
     }))
+    return routes
+  }
+
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async getPatternRoutes(): Promise<StoredRoute[]> {
+    const routes = Object.entries(this.data.routes)
+      .filter(([id]) => this.isPattern(id))
+      .map(([id, config]) => ({
+        ...config,
+        id
+      }))
     return routes
   }
 

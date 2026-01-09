@@ -42,3 +42,7 @@ CLAUDE.md
 # Temp files
 temp/
 .kv-bulk-import.json
+
+# Trae documents
+.trae/
+.gemini/

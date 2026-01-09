@@ -55,7 +55,8 @@ By design, Gr8hopper redirects users to URLs configured in route templates. This
 
 ### Input Validation
 
-- Route IDs are sanitized to alphanumeric characters and hyphens only
+- Route IDs are sanitized to lowercase and allow pattern characters (`/`, `{`, `}`, `*`, `.`, `:`, `?`, `&`, `=`, `-`). Backslashes are stripped to prevent escape injection.
+- Complex pattern matching includes protection against Regular Expression Denial of Service (ReDoS) via backtracking limits.
 - Template URLs are validated to prevent `javascript:`, `data:`, and other dangerous schemes
 - Query parameters are URL-encoded in redirects
 
@@ -86,6 +87,12 @@ add_header Referrer-Policy "no-referrer" always;
 For Cloudflare Workers, add security headers via Transform Rules in the Cloudflare Dashboard, or directly in your Worker code using Hono middleware.
 
 ## Security Changelog
+
+### v1.3.0
+- ReDoS protection: Implemented backtrack depth limits for complex pattern matching
+- Enhanced sanitization: Route ID sanitization now blocks backslashes and improves validation of template placeholders
+- Stricter pattern validation: Prevents malformed or excessively complex route patterns that could impact performance
+- Improved placeholder safety: Reserved placeholders (like `{route}`) cannot be overwritten by user-defined pattern parameters
 
 ### v1.1.0
 - Runtime URL scheme validation in redirect handler (blocks javascript:, data:, vbscript:, file:, about:, blob:, filesystem:)

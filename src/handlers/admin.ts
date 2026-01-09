@@ -1,9 +1,9 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import type { StorageAdapter } from '../storage/adapter.js'
 import type { RouteConfig, GlobalSettings } from '../types.js'
 import { basicAuth, type AuthConfig } from '../middleware/auth.js'
 import { sanitizeRouteId } from '../utils/sanitize.js'
-import { validateRouteConfig, validateRoutePatch, validateSettings } from '../utils/validation.js'
+import { validateRouteConfig, validateRouteIdPattern, validateRoutePatch, validateSettings } from '../utils/validation.js'
 
 export interface CloudflareConfig {
   apiToken?: string
@@ -19,6 +19,43 @@ export interface AdminHandlerOptions {
   storage: StorageAdapter
   auth: AuthConfig
   cloudflare?: CloudflareConfig
+}
+
+function getRouteIdFromRequest(c: Context): string {
+  let rawId = ''
+
+  try {
+    rawId = c.req.param('id')
+  } catch {
+    rawId = ''
+  }
+
+  if (!rawId) {
+    try {
+      rawId = c.req.param('*')
+    } catch {
+      rawId = ''
+    }
+  }
+
+  if (!rawId) {
+    rawId = c.req.query('id') || ''
+  }
+
+  if (rawId.startsWith('/')) {
+    rawId = rawId.slice(1)
+  }
+
+  let decodedId = rawId
+  if (rawId.includes('%')) {
+    try {
+      decodedId = decodeURIComponent(rawId)
+    } catch {
+      decodedId = rawId
+    }
+  }
+
+  return sanitizeRouteId(decodedId)
 }
 
 /**
@@ -42,10 +79,35 @@ export function createAdminHandler(options: AdminHandlerOptions): Hono {
     }
   })
 
-  // Get single route
+  // Get single route - :id for simple routes
   app.get('/routes/:id', async (c) => {
+    const id = getRouteIdFromRequest(c)
+    if (!id) {
+      return c.json({ error: 'Route ID is required' }, 400)
+    }
+
     try {
-      const id = sanitizeRouteId(c.req.param('id'))
+      const route = await storage.getRoute(id)
+
+      if (!route) {
+        return c.json({ error: 'Route not found' }, 404)
+      }
+
+      return c.json({ id, ...route })
+    } catch (error) {
+      console.error('[Admin] Failed to get route:', error)
+      return c.json({ error: 'Failed to retrieve route' }, 500)
+    }
+  })
+
+  // Get single route - wildcard catches pattern routes containing slashes (e.g., "shop/{id}")
+  app.get('/routes/*', async (c) => {
+    const id = getRouteIdFromRequest(c)
+    if (!id) {
+      return c.json({ error: 'Route ID is required' }, 400)
+    }
+
+    try {
       const route = await storage.getRoute(id)
 
       if (!route) {
@@ -74,6 +136,10 @@ export function createAdminHandler(options: AdminHandlerOptions): Hono {
       if (!id) {
         return c.json({ error: 'Route ID is required' }, 400)
       }
+      const idValidation = validateRouteIdPattern(id)
+      if (!idValidation.valid) {
+        return c.json({ error: `Invalid route ID: ${idValidation.reason}` }, 400)
+      }
 
       const config = validateRouteConfig(body)
       if (!config) {
@@ -88,8 +154,13 @@ export function createAdminHandler(options: AdminHandlerOptions): Hono {
     }
   })
 
-  // Update route
+  // Update route - :id for simple routes
   app.patch('/routes/:id', async (c) => {
+    const id = getRouteIdFromRequest(c)
+    if (!id) {
+      return c.json({ error: 'Route ID is required' }, 400)
+    }
+
     let body: unknown
     try {
       body = await c.req.json()
@@ -98,7 +169,6 @@ export function createAdminHandler(options: AdminHandlerOptions): Hono {
     }
 
     try {
-      const id = sanitizeRouteId(c.req.param('id'))
       const existing = await storage.getRoute(id)
 
       if (!existing) {
@@ -121,10 +191,72 @@ export function createAdminHandler(options: AdminHandlerOptions): Hono {
     }
   })
 
-  // Delete route
-  app.delete('/routes/:id', async (c) => {
+  // Update route - wildcard catches pattern routes containing slashes
+  app.patch('/routes/*', async (c) => {
+    const id = getRouteIdFromRequest(c)
+    if (!id) {
+      return c.json({ error: 'Route ID is required' }, 400)
+    }
+
+    let body: unknown
     try {
-      const id = sanitizeRouteId(c.req.param('id'))
+      body = await c.req.json()
+    } catch {
+      return c.json({ error: 'Invalid JSON' }, 400)
+    }
+
+    try {
+      const existing = await storage.getRoute(id)
+
+      if (!existing) {
+        return c.json({ error: 'Route not found' }, 404)
+      }
+
+      const patch = validateRoutePatch(body)
+      if (!patch) {
+        return c.json({ error: 'Invalid route configuration' }, 400)
+      }
+
+      // Merge existing with updates (partial update support)
+      const merged: RouteConfig = { ...existing, ...patch }
+
+      await storage.setRoute(id, merged)
+      return c.json({ id, ...merged })
+    } catch (error) {
+      console.error('[Admin] Failed to update route:', error)
+      return c.json({ error: 'Failed to update route' }, 500)
+    }
+  })
+
+  // Delete route - :id for simple routes
+  app.delete('/routes/:id', async (c) => {
+    const id = getRouteIdFromRequest(c)
+    if (!id) {
+      return c.json({ error: 'Route ID is required' }, 400)
+    }
+
+    try {
+      const deleted = await storage.deleteRoute(id)
+
+      if (!deleted) {
+        return c.json({ error: 'Route not found' }, 404)
+      }
+
+      return c.json({ deleted: true, id })
+    } catch (error) {
+      console.error('[Admin] Failed to delete route:', error)
+      return c.json({ error: 'Failed to delete route' }, 500)
+    }
+  })
+
+  // Delete route - wildcard catches pattern routes containing slashes
+  app.delete('/routes/*', async (c) => {
+    const id = getRouteIdFromRequest(c)
+    if (!id) {
+      return c.json({ error: 'Route ID is required' }, 400)
+    }
+
+    try {
       const deleted = await storage.deleteRoute(id)
 
       if (!deleted) {
@@ -180,11 +312,12 @@ export function createAdminHandler(options: AdminHandlerOptions): Hono {
       const settings = await storage.getSettings()
 
       // Convert to routes.json format
-      const routesObj: Record<string, { template: string; active: boolean }> = {}
+      const routesObj: Record<string, RouteConfig> = {}
       for (const route of routes) {
         routesObj[route.id] = {
           template: route.template,
-          active: route.active
+          active: route.active,
+          passthrough: route.passthrough === true // Include passthrough (even if false/undefined)
         }
       }
 
@@ -224,7 +357,11 @@ export function createAdminHandler(options: AdminHandlerOptions): Hono {
       for (const id of routeIds) {
         const sanitizedId = sanitizeRouteId(id)
         if (!sanitizedId) {
-          return c.json({ error: `Invalid route ID: "${id}". IDs must contain only letters, numbers, and hyphens.` }, 400)
+          return c.json({ error: `Invalid route ID: "${id}". IDs may include letters, numbers, hyphens, slashes, braces, asterisks, dots, colons, and query symbols (? & =).` }, 400)
+        }
+        const idValidation = validateRouteIdPattern(sanitizedId)
+        if (!idValidation.valid) {
+          return c.json({ error: `Invalid route ID: "${id}". ${idValidation.reason}` }, 400)
         }
 
         // Check for ID collisions after sanitization
@@ -263,7 +400,11 @@ export function createAdminHandler(options: AdminHandlerOptions): Hono {
       const existingSettings = await storage.getSettings()
       const routeBackup = existingRoutes.map(r => ({
         id: r.id,
-        config: { template: r.template, active: r.active }
+        config: {
+          template: r.template,
+          active: r.active,
+          passthrough: r.passthrough === true // Preserve passthrough in backup
+        }
       }))
       const settingsBackup = { ...existingSettings }
 
@@ -313,10 +454,13 @@ export function createAdminHandler(options: AdminHandlerOptions): Hono {
           console.error('[Admin] Settings import failed, rolling back:', settingsError)
           const routesRestored = await restoreRouteBackup()
           const settingsRestored = await restoreSettingsBackup()
-          const routeStatus = routesRestored ? ' Routes restored.' : ' Failed to restore routes.'
-          const settingsStatus = settingsRestored ? ' Settings restored.' : ' Failed to restore settings.'
+          const routeStatus = routesRestored ? ' Routes restored.' : ' FAILED to restore routes - new routes may still be active.'
+          const settingsStatus = settingsRestored ? ' Settings restored.' : ' FAILED to restore settings.'
+          const nextStep = (!routesRestored || !settingsRestored)
+            ? ' Use /admin/export to backup current state, then re-import from a known good configuration.'
+            : ''
           return c.json({
-            error: `Settings import failed.${routeStatus}${settingsStatus} Please verify your configuration.`
+            error: `Settings import failed.${routeStatus}${settingsStatus}${nextStep}`
           }, 500)
         }
       }

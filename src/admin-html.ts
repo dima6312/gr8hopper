@@ -1281,7 +1281,7 @@ export function getAdminHtml(basePath: string = '/admin', version: string = 'dev
   <div class="container">
     <!-- Header -->
     <header class="header">
-      <h1>Redirects <span class="routes-count" id="routes-count">0</span></h1>
+      <h1>gr8hopper <span style="font-size: 14px; font-weight: 500; color: var(--text-muted);">v${version}</span></h1>
       <div class="header-buttons">
         <button class="logout-btn" id="logout-btn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1359,7 +1359,7 @@ export function getAdminHtml(basePath: string = '/admin', version: string = 'dev
     <!-- Routes Card -->
     <div class="card">
       <div class="card-header">
-        <h2 class="card-title">Your redirects</h2>
+        <h2 class="card-title">Your redirects <span class="routes-count" id="routes-count">0</span></h2>
         <div class="header-buttons">
           <button class="btn btn-secondary" id="export-btn">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -1463,9 +1463,9 @@ export function getAdminHtml(basePath: string = '/admin', version: string = 'dev
           <div id="form-error"></div>
 
           <div class="form-group">
-            <label class="form-label">Route ID</label>
-            <input type="text" id="route-id" class="form-input" required pattern="[a-zA-Z0-9-]+" placeholder="my-redirect" autocomplete="off">
-            <p class="form-hint">Letters, numbers, and hyphens only. Use in URLs as ?r=<strong>my-redirect</strong></p>
+            <label class="form-label">Route ID / Path</label>
+            <input type="text" id="route-id" class="form-input" required pattern="[a-zA-Z0-9/{}\\*\\.\\?&amp;=:\\-]+" placeholder="my-redirect, shop/{id}, shop/:id, or product/{id}?lang={lang}" autocomplete="off">
+            <p class="form-hint">Letters, numbers, hyphens, slashes, braces, asterisks, colons, and query symbols (? &amp; =). Supports patterns like <strong>shop/{id}</strong>, <strong>shop/:id</strong>, <strong>files/**</strong>, or <strong>product/{id}?lang={lang}</strong>.</p>
           </div>
 
           <div class="form-group">
@@ -1495,6 +1495,12 @@ export function getAdminHtml(basePath: string = '/admin', version: string = 'dev
             <div class="toggle active" id="route-active-toggle"></div>
             <span class="toggle-label">Redirect is active</span>
           </div>
+
+          <div class="toggle-group" style="margin-top: 16px;">
+            <div class="toggle" id="route-passthrough-toggle"></div>
+            <span class="toggle-label">Passthrough query parameters</span>
+          </div>
+          <p class="form-hint" style="margin-top: 4px; margin-left: 56px;">When enabled, query parameters from the source URL (like UTM tags) will be automatically appended to the destination URL.</p>
         </div>
 
         <div class="modal-footer">
@@ -1564,21 +1570,22 @@ export function getAdminHtml(basePath: string = '/admin', version: string = 'dev
       document.getElementById('settings-form').addEventListener('submit', saveSettings);
       document.getElementById('route-form').addEventListener('submit', saveRoute);
       document.getElementById('route-active-toggle').addEventListener('click', toggleActive);
+      document.getElementById('route-passthrough-toggle').addEventListener('click', togglePassthrough);
       document.getElementById('logout-btn').addEventListener('click', logout);
 
       // Settings expand/collapse toggle
       document.getElementById('settings-toggle').addEventListener('click', toggleSettings);
 
-      // Sanitize route ID input - only allow letters, numbers, hyphens
+      // Sanitize route ID input - allow letters, numbers, hyphens, slashes, braces, asterisks, dots, colons, and query symbols
       document.getElementById('route-id').addEventListener('input', (e) => {
         const input = e.target;
-        input.value = input.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+        input.value = input.value.toLowerCase().replace(/[^a-z0-9/{}.?&=:*-]/g, '');
       });
 
       // Strip http:// or https:// from destination URL (we prepend https:// on save)
       document.getElementById('route-template').addEventListener('input', (e) => {
         const input = e.target;
-        input.value = input.value.replace(/^https?:\\/\\//i, '');
+        input.value = input.value.replace(/^https?:\\/\\/\\//i, '');
       });
 
       // Close modal on overlay click (only if started and ended on overlay)
@@ -1638,6 +1645,11 @@ export function getAdminHtml(basePath: string = '/admin', version: string = 'dev
 
     function toggleActive() {
       const toggle = document.getElementById('route-active-toggle');
+      toggle.classList.toggle('active');
+    }
+
+    function togglePassthrough() {
+      const toggle = document.getElementById('route-passthrough-toggle');
       toggle.classList.toggle('active');
     }
 
@@ -1792,13 +1804,108 @@ export function getAdminHtml(basePath: string = '/admin', version: string = 'dev
 
         const sampleLink = document.createElement('a');
         sampleLink.className = 'route-sample-link';
-        let sampleUrl = window.location.origin + '/?' + encodeURIComponent(currentRouteParam) + '=' + encodeURIComponent(route.id);
-        const placeholders = (route.template.match(/\\{([^}]+)\\}/g) || [])
-          .map(m => m.slice(1, -1))
-          .filter(p => p !== 'route'); 
-        placeholders.forEach(param => {
-          sampleUrl += '&' + encodeURIComponent(param) + '=YOUR_' + param.toUpperCase();
-        });
+        
+        // Detect if this is a pattern route (contains {, *, ?, or :)
+        const isPatternRoute = route.id.includes('{') || route.id.includes('*') || route.id.includes('?') || route.id.includes(':');
+        
+        let sampleUrl;
+        if (isPatternRoute) {
+          // For pattern routes, show path-based URL (cleaner and more intuitive)
+          // Replace placeholders in the route pattern with example values
+          const queryIndex = route.id.indexOf('?');
+          let pathPattern = queryIndex >= 0 ? route.id.slice(0, queryIndex) : route.id;
+          const queryPart = queryIndex >= 0 ? route.id.slice(queryIndex + 1) : '';
+          
+          // Extract placeholders from the pattern
+          const pathPlaceholders = (pathPattern.match(/\\{([^}]+)\\}/g) || [])
+            .map(m => {
+              const inner = m.slice(1, -1);
+              // Handle optional params: {param?} -> param
+              // Handle defaults: {param=value} -> param
+              const name = inner.replace(/[?=].*$/, '');
+              return { full: m, name };
+            });
+          
+          // Replace each placeholder with example value
+          pathPlaceholders.forEach(({ full, name }) => {
+            const exampleValue = 'YOUR_' + name.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+            pathPattern = pathPattern.replace(full, exampleValue);
+          });
+          
+          // Replace :param-style placeholders (preserving slashes around them)
+          // eslint-disable-next-line no-useless-escape
+          pathPattern = pathPattern.replace(/:([a-z0-9_]+)\\??/gi, (match, name) => {
+            if (!name) return match;
+            return 'YOUR_' + name.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+          });
+          
+          // Handle wildcards
+          if (pathPattern.includes('**')) {
+            // eslint-disable-next-line no-useless-escape
+            pathPattern = pathPattern.replace(/\\*\\*/g, 'example/path');
+          }
+          if (pathPattern.includes('*')) {
+            // eslint-disable-next-line no-useless-escape
+            pathPattern = pathPattern.replace(/\\*/g, 'example');
+          }
+          
+          sampleUrl = window.location.origin + '/' + pathPattern;
+          
+          // Add query params if the pattern has query requirements
+          if (queryPart) {
+            const queryParams = new URLSearchParams();
+            
+            // Parse query params from pattern
+            queryPart.split('&').forEach(pair => {
+              if (pair === '*' || pair.trim() === '') return;
+              const equalIndex = pair.indexOf('=');
+              if (equalIndex < 0) {
+                const paramName = pair.trim();
+                if (!paramName) return;
+                const exampleValue = 'YOUR_' + paramName.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+                queryParams.set(paramName, exampleValue);
+                return;
+              }
+
+              const paramName = pair.slice(0, equalIndex).trim();
+              const valueSpec = pair.slice(equalIndex + 1).trim();
+
+              if (!paramName) return;
+              
+              if (valueSpec === '*') {
+                queryParams.set(paramName, 'any');
+                return;
+              }
+              
+              if (valueSpec.startsWith('{') && valueSpec.endsWith('}')) {
+                const inner = valueSpec.slice(1, -1).trim();
+                const defaultIndex = inner.indexOf('=');
+                const placeholderName = defaultIndex >= 0 ? inner.slice(0, defaultIndex).trim() : inner.replace(/[?]$/, '').trim();
+                const name = placeholderName || paramName;
+                const exampleValue = 'YOUR_' + name.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+                queryParams.set(paramName, exampleValue);
+                return;
+              }
+
+              // Literal value (e.g., lang=en)
+              queryParams.set(paramName, valueSpec);
+            });
+            
+            if (queryParams.toString()) {
+              sampleUrl += '?' + queryParams.toString();
+            }
+          }
+        } else {
+          // For simple routes, use query parameter format
+          sampleUrl = window.location.origin + '/?' + encodeURIComponent(currentRouteParam) + '=' + encodeURIComponent(route.id);
+          const placeholders = (route.template.match(/\\{([^}]+)\\}/g) || [])
+            .map(m => m.slice(1, -1))
+            .filter(p => p !== 'route'); 
+          placeholders.forEach(param => {
+            sampleUrl += '&' + encodeURIComponent(param) + '=YOUR_' + param.toUpperCase();
+          });
+        }
+        
         sampleLink.href = sampleUrl;
         sampleLink.target = '_blank';
         sampleLink.textContent = sampleUrl;
@@ -1977,19 +2084,25 @@ export function getAdminHtml(basePath: string = '/admin', version: string = 'dev
       const editMode = document.getElementById('edit-mode');
       const idInput = document.getElementById('route-id');
       const toggle = document.getElementById('route-active-toggle');
+      const passthroughToggle = document.getElementById('route-passthrough-toggle');
 
       if (route) {
         title.textContent = 'Edit redirect';
         editMode.value = 'update';
         idInput.value = route.id;
         idInput.disabled = true;
-        // Strip https:// prefix for display (we prepend it on save)
-        document.getElementById('route-template').value = route.template.replace(/^https?:\\/\\//i, '');
+      document.getElementById('route-template').value = route.template;
 
         if (route.active) {
           toggle.classList.add('active');
         } else {
           toggle.classList.remove('active');
+        }
+
+        if (route.passthrough) {
+          passthroughToggle.classList.add('active');
+        } else {
+          passthroughToggle.classList.remove('active');
         }
       } else {
         title.textContent = 'Add redirect';
@@ -1997,6 +2110,7 @@ export function getAdminHtml(basePath: string = '/admin', version: string = 'dev
         idInput.disabled = false;
         document.getElementById('route-form').reset();
         toggle.classList.add('active');
+        passthroughToggle.classList.remove('active'); // Default: passthrough off
       }
 
       document.getElementById('form-error').textContent = '';
@@ -2040,16 +2154,17 @@ export function getAdminHtml(basePath: string = '/admin', version: string = 'dev
 
       const id = document.getElementById('route-id').value.trim();
       const name = id; // Use route ID as name
-      const templateValue = document.getElementById('route-template').value.trim();
-      const template = 'https://' + templateValue; // Always prepend https://
+      const template = document.getElementById('route-template').value.trim();
       const active = document.getElementById('route-active-toggle').classList.contains('active');
+      const passthrough = document.getElementById('route-passthrough-toggle').classList.contains('active');
       const editMode = document.getElementById('edit-mode').value;
 
       const body = {
         id,
         name,
         template,
-        active
+        active,
+        passthrough
       };
 
       try {

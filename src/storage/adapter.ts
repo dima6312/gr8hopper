@@ -10,6 +10,13 @@ export interface StorageAdapter {
   /** Get all routes */
   getAllRoutes(): Promise<StoredRoute[]>
 
+  /**
+   * Get all pattern-based routes (currently: IDs containing `{`, `*`, `?`, or `:`)
+   * Optimized to fetch only relevant routes for pattern matching
+   * Note: `**` is supported by the matcher but adapters should include it in pattern detection.
+   */
+  getPatternRoutes?(): Promise<StoredRoute[]>
+
   /** Create or update a route */
   setRoute(id: string, config: RouteConfig): Promise<void>
 

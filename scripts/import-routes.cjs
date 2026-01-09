@@ -3,12 +3,15 @@
  * Import routes.json to Cloudflare KV
  * Usage: npm run import:routes [path/to/routes.json] [--local]
  *
- * NOTE: Validation logic (sanitizeRouteId, isValidUrlScheme, validateRouteConfig,
- * validateSettings, DANGEROUS_SCHEMES) is intentionally duplicated here from
+ * NOTE: Validation logic (sanitizeRouteId, validateRouteIdPattern, isValidUrlScheme,
+ * validateRouteConfig, validateSettings, DANGEROUS_SCHEMES) is intentionally duplicated here from
  * src/utils/validation.ts and src/utils/sanitize.ts. This script is CommonJS
  * for standalone execution without a build step, while the main codebase uses
  * ES modules. Keeping validation logic inline ensures the script works
  * independently without requiring module bundling.
+ *
+ * SYNC NOTE: When updating validation logic, ensure both this file and the source
+ * files (src/utils/validation.ts, src/utils/sanitize.ts) stay in sync.
  */
 
 const fs = require('fs')
@@ -35,10 +38,248 @@ const DANGEROUS_SCHEMES = [
 const MAX_URL_LENGTH = 2048
 
 /**
- * Sanitize route ID to alphanumeric + hyphens only (matching sanitize.ts)
+ * Sanitize route ID (matching src/utils/sanitize.ts).
  */
 function sanitizeRouteId(id) {
-  return id.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase()
+  // Allow letters, numbers, hyphens, slashes, braces, asterisks, dots, colons, question marks, ampersands, and equals signs
+  return id.replace(/[^a-zA-Z0-9/{}.?&=:*-]/g, '').toLowerCase()
+}
+
+/**
+ * Validate route ID pattern syntax.
+ */
+function validateRouteIdPattern(id) {
+  if (!id) {
+    return { valid: false, reason: 'Route ID is required' }
+  }
+
+  let braceDepth = 0
+  for (let i = 0; i < id.length; i += 1) {
+    const char = id[i]
+    if (char === '{') {
+      if (braceDepth > 0) {
+        return { valid: false, reason: 'Nested "{" in route ID' }
+      }
+      braceDepth += 1
+      continue
+    }
+    if (char === '}') {
+      if (braceDepth === 0) {
+        return { valid: false, reason: 'Unmatched "}" in route ID' }
+      }
+      braceDepth -= 1
+    }
+  }
+
+  if (braceDepth !== 0) {
+    return { valid: false, reason: 'Unmatched "{" in route ID' }
+  }
+
+  const { pathPattern, queryString } = splitRoutePattern(id)
+
+  const normPath = pathPattern.replace(/^\/+|\/+$/g, '')
+  if (normPath) {
+    const segments = normPath.split('/')
+    for (const segment of segments) {
+      const result = validatePathSegment(segment)
+      if (!result.valid) {
+        return result
+      }
+    }
+  }
+
+  if (queryString) {
+    const result = validateQueryString(queryString)
+    if (!result.valid) {
+      return result
+    }
+  }
+
+  return { valid: true }
+}
+
+function splitRoutePattern(pattern) {
+  let queryIndex = -1
+  let braceDepth = 0
+  for (let i = 0; i < pattern.length; i += 1) {
+    const char = pattern[i]
+    if (char === '{') {
+      braceDepth += 1
+      continue
+    }
+    if (char === '}' && braceDepth > 0) {
+      braceDepth -= 1
+      continue
+    }
+    if (char === '?' && braceDepth === 0) {
+      const segmentStart = pattern.lastIndexOf('/', i - 1) + 1
+      const segment = pattern.slice(segmentStart, i)
+      if (segment.startsWith(':')) {
+        const nextChar = pattern[i + 1]
+        if (nextChar === undefined || nextChar === '/') {
+          continue
+        }
+      }
+      queryIndex = i
+      break
+    }
+  }
+
+  return {
+    pathPattern: queryIndex >= 0 ? pattern.slice(0, queryIndex) : pattern,
+    queryString: queryIndex >= 0 ? pattern.slice(queryIndex + 1) : ''
+  }
+}
+
+function hasInvalidParamChars(name) {
+  return /[?={}\s]/.test(name)
+}
+
+function validatePathSegment(segment) {
+  if (!segment) {
+    return { valid: true }
+  }
+
+  if (segment === '*' || segment === '**') {
+    return { valid: true }
+  }
+
+  if (segment.startsWith('{') || segment.endsWith('}')) {
+    if (!segment.startsWith('{') || !segment.endsWith('}')) {
+      return { valid: false, reason: 'Malformed path placeholder' }
+    }
+
+    const inner = segment.slice(1, -1)
+    if (!inner) {
+      return { valid: false, reason: 'Empty path parameter name' }
+    }
+    if (inner.includes('{') || inner.includes('}')) {
+      return { valid: false, reason: 'Malformed path placeholder' }
+    }
+
+    let name = inner
+    const defaultIndex = inner.indexOf('=')
+    if (defaultIndex >= 0) {
+      name = inner.slice(0, defaultIndex)
+    } else if (inner.endsWith('?')) {
+      name = inner.slice(0, -1)
+    }
+
+    if (!name) {
+      return { valid: false, reason: 'Empty path parameter name' }
+    }
+    if (hasInvalidParamChars(name)) {
+      return { valid: false, reason: 'Invalid path parameter name' }
+    }
+
+    return { valid: true }
+  }
+
+  if (segment.startsWith(':')) {
+    const rawName = segment.slice(1)
+    if (!rawName) {
+      return { valid: false, reason: 'Empty path parameter name' }
+    }
+
+    const optional = rawName.endsWith('?')
+    const name = optional ? rawName.slice(0, -1) : rawName
+    if (!name) {
+      return { valid: false, reason: 'Empty path parameter name' }
+    }
+    if (hasInvalidParamChars(name)) {
+      return { valid: false, reason: 'Invalid path parameter name' }
+    }
+    if (!optional && rawName.includes('?')) {
+      return { valid: false, reason: 'Invalid path parameter name' }
+    }
+
+    return { valid: true }
+  }
+
+  if (segment.includes('{') || segment.includes('}')) {
+    return { valid: false, reason: 'Malformed path placeholder' }
+  }
+
+  return { valid: true }
+}
+
+function validateQueryString(queryString) {
+  const pairs = queryString.split('&')
+  for (const rawPair of pairs) {
+    const pair = rawPair.trim()
+    if (!pair) {
+      return { valid: false, reason: 'Empty query parameter in route ID' }
+    }
+    if (pair === '*') {
+      continue
+    }
+
+    const equalIndex = pair.indexOf('=')
+    if (equalIndex < 0) {
+      if (pair.includes('{') || pair.includes('}')) {
+        return { valid: false, reason: 'Malformed query parameter name' }
+      }
+      continue
+    }
+
+    const paramName = pair.slice(0, equalIndex).trim()
+    const valueSpec = pair.slice(equalIndex + 1).trim()
+    if (!paramName) {
+      return { valid: false, reason: 'Empty query parameter name' }
+    }
+    if (paramName.includes('{') || paramName.includes('}')) {
+      return { valid: false, reason: 'Malformed query parameter name' }
+    }
+
+    if (!valueSpec) {
+      continue
+    }
+    if (valueSpec === '*') {
+      continue
+    }
+
+    if (valueSpec.startsWith('{') || valueSpec.endsWith('}')) {
+      if (!valueSpec.startsWith('{') || !valueSpec.endsWith('}')) {
+        return { valid: false, reason: 'Malformed query parameter placeholder' }
+      }
+      const inner = valueSpec.slice(1, -1)
+      if (!inner) {
+        return { valid: false, reason: 'Empty query parameter name' }
+      }
+      if (inner.includes('{') || inner.includes('}')) {
+        return { valid: false, reason: 'Malformed query parameter placeholder' }
+      }
+
+      let name = inner
+      const defaultIndex = inner.indexOf('=')
+      if (defaultIndex >= 0) {
+        name = inner.slice(0, defaultIndex)
+      } else if (inner.endsWith('?')) {
+        name = inner.slice(0, -1)
+      }
+
+      if (!name) {
+        return { valid: false, reason: 'Empty query parameter name' }
+      }
+      if (hasInvalidParamChars(name)) {
+        return { valid: false, reason: 'Invalid query parameter name' }
+      }
+      continue
+    }
+
+    if (valueSpec.includes('{') || valueSpec.includes('}')) {
+      return { valid: false, reason: 'Malformed query parameter placeholder' }
+    }
+  }
+
+  return { valid: true }
+}
+
+/**
+ * Determine whether a route ID is a pattern (matching storage adapters).
+ */
+function isPattern(id) {
+  return id.includes('{') || id.includes('*') || id.includes('?') || id.includes(':')
 }
 
 /**
@@ -87,6 +328,11 @@ function validateRouteConfig(config) {
 
   if (typeof config.active !== 'boolean') {
     return { valid: false, reason: 'Active must be a boolean' }
+  }
+
+  // Validate passthrough (optional boolean, default false)
+  if (config.passthrough !== undefined && typeof config.passthrough !== 'boolean') {
+    return { valid: false, reason: 'Passthrough must be a boolean if provided' }
   }
 
   // Sanitize template to remove control characters (prevents CRLF injection)
@@ -199,7 +445,13 @@ for (const id of routeIds) {
   const sanitizedId = sanitizeRouteId(id)
 
   if (!sanitizedId) {
-    validationErrors.push(`  - "${id}": Invalid route ID (must contain letters, numbers, or hyphens)`)
+    validationErrors.push(`  - "${id}": Invalid route ID (must contain at least one allowed character)`)
+    continue
+  }
+
+  const idValidation = validateRouteIdPattern(sanitizedId)
+  if (!idValidation.valid) {
+    validationErrors.push(`  - "${id}": ${idValidation.reason}`)
     continue
   }
 
@@ -221,12 +473,19 @@ for (const id of routeIds) {
     continue
   }
 
+  const config = {
+    template: validation.sanitizedTemplate,
+    active: routes[id].active
+  }
+  // Only add passthrough to config if explicitly set to true
+  // (keeps export consistent with validateRouteConfig which defaults to false)
+  if (routes[id].passthrough === true) {
+    config.passthrough = true
+  }
+
   sanitizedRoutes.push({
     id: sanitizedId,
-    config: {
-      template: validation.sanitizedTemplate,
-      active: routes[id].active
-    }
+    config
   })
 }
 
@@ -278,7 +537,14 @@ try {
 
   // Validate namespace ID format (should be 32 hex characters)
   if (!/^[a-f0-9]{32}$/i.test(namespaceId)) {
-    console.log(yellow(`Warning: Namespace ID doesn't match expected format (32 hex chars)`))
+    console.error(red(`Error: Invalid namespace ID format.`))
+    console.log(`\nExpected: 32 hexadecimal characters (e.g., a1b2c3d4e5f6789012345678abcdef90)`)
+    console.log(`Got: ${namespaceId}`)
+    if (namespaceId.includes('-') || namespaceId === 'your-production-kv-namespace-id' || namespaceId === 'your-kv-namespace-id') {
+      console.log(`\n${yellow('This looks like a placeholder!')} Update your ${configUsed} with your actual KV namespace ID.`)
+      console.log(`Run: ${cyan('npx wrangler kv namespace create ROUTES_KV')}`)
+    }
+    process.exit(1)
   }
 } catch (err) {
   console.error(red(`Error: ${err.message}`))
@@ -305,6 +571,15 @@ const sanitizedIds = sanitizedRoutes.map(r => r.id)
 bulk.push({
   key: 'routes:index',
   value: JSON.stringify(sanitizedIds)
+})
+
+// Add routes patterns index (full StoredRoute[] format for kv.ts compatibility)
+const patternRoutes = sanitizedRoutes
+  .filter(r => isPattern(r.id))
+  .map(r => ({ ...r.config, id: r.id }))
+bulk.push({
+  key: 'routes:patterns',
+  value: JSON.stringify(patternRoutes)
 })
 
 // Validate and add settings if provided
