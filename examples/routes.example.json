@@ -2,7 +2,8 @@
   "routes": {
     "partner-a": {
       "template": "https://partner-a.example.com/product/{id}?ref={route}",
-      "active": true
+      "active": true,
+      "passthrough": true
     },
     "partner-b": {
       "template": "https://{region}.partner-b.example.com/item/{id}?lang={lang}",

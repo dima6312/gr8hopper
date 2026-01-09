@@ -2,6 +2,13 @@
 # Copy this file to .dev.vars and set your values
 # .dev.vars is gitignored and overrides wrangler.toml [vars]
 
+# Optional: set NODE_ENV for local development
+# Note: .dev.vars is only used during local development (e.g., with `wrangler dev`) and is never
+# loaded in production deployments regardless of the NODE_ENV value. Setting NODE_ENV=production
+# is not required to prevent .dev.vars from loading in production - .dev.vars is only applied
+# by local dev tooling.
+NODE_ENV=development
+
 ADMIN_PASSWORD=your-local-dev-password
 
 # Optional: Override admin username (defaults to wrangler.toml value)
@@ -9,3 +16,6 @@ ADMIN_PASSWORD=your-local-dev-password
 
 # Optional: Hide admin panel at custom path
 # ADMIN_PATH=secret-admin-panel
+
+# Optional: Set custom port for npm run dev:node (defaults to 3000)
+# PORT=8080

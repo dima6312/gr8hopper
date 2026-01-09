@@ -113,7 +113,7 @@ https://your-domain.com/?r=partner-a&id=12345
 301 Redirect → https://partner-a.com/product/12345?ref=partner-a
 ```
 
-> **Note:** The `{route}` placeholder is automatically replaced with the route ID (e.g., `partner-a`), useful for tracking which route was used.
+> **Note:** The `{route}` placeholder is automatically replaced with the route ID (URL-encoded), useful for tracking which route was used safely in query strings.
 
 ## Configuration
 
@@ -123,6 +123,7 @@ https://your-domain.com/?r=partner-a&id=12345
 |-------|------|----------|-------------|
 | `template` | string | Yes | Target URL with `{param}` placeholders |
 | `active` | boolean | Yes | Enable/disable this route |
+| `passthrough` | boolean | No | Pass through query parameters from source URL (default: false) |
 
 ### Template Placeholders
 
@@ -130,12 +131,79 @@ Use `{param}` syntax in your destination URL template:
 
 | Placeholder | Source | Example |
 |-------------|--------|---------|
-| `{route}` | Route ID (automatic) | `partner-a` |
+| `{route}` | Route ID (automatic, URL-encoded) | `partner-a` |
 | `{anyParam}` | URL query parameter | `?anyParam=value` |
 
 Missing placeholders are left as-is (e.g., `{id}` stays `{id}`) to make configuration errors visible in the destination URL.
 
 Example template: `https://site.com/{route}/product/{id}`
+
+### Pattern Routes
+
+Route IDs can be patterns. Supported tokens:
+- `{param}` required path param, `{param?}` optional, `{param=default}` optional with default
+- `:param` shorthand for path params (required)
+- `*` wildcard for **exactly one** path segment
+- `**` globstar for **zero or more** path segments (consumes rest)
+- Query patterns like `?lang={lang}`, `?lang={lang?}`, `?lang=en`, and `?*` are supported
+
+**Pattern Examples:**
+- `shop/:category/:id` matches `/shop/shoes/42`
+- `blog/{year?}/{slug}` matches `/blog/2024/launch` and `/blog/launch`
+- `files/**` matches `/files`, `/files/a`, and `/files/a/b/c`
+- `*/details/*` matches `/shoes/details/42` (each `*` captures exactly one segment)
+- `product/{id}?lang={lang?}` matches `/product/123` and `/product/123?lang=en`
+
+**Multiple Wildcards:**
+If a pattern contains multiple wildcards of the same type, they are indexed:
+- First `*` → `*`, second `*` → `*1`, third `*` → `*2`
+- First `**` → `**`, second `**` → `**1`, third `**` → `**2`
+
+Example:
+- Pattern: `*/category/*/item`
+- Path: `/shop/category/shoes/item`
+- Captured: `{ '*': 'shop', '*1': 'shoes' }`
+- Template: `https://example.com/{*}/{*1}` → `https://example.com/shop/shoes`
+
+**Tip:** If you need to combine an optional path parameter with query parameters, use the `{param?}` syntax to avoid ambiguity.
+- ✅ `shop/{id?}?sort={sort}`: Optional `id` AND optional `sort` query param.
+- ⚠️ `shop/:id?sort={sort}`: The `?` acts as a query separator, so `:id` becomes **required**.
+
+**Case Sensitivity:**
+- **Path matching** is **case-insensitive**. A route defined as `Shop/{id}` will match `/shop/123`, `/SHOP/123`, and `/Shop/123`.
+- **Captured parameters** preserve their original casing (e.g., if the user visits `/Shop/RedShoes`, the `{id}` parameter will be `RedShoes`).
+- **Query parameter names** are **case-sensitive**. A pattern `?source={source}` matches `?source=google` but NOT `?Source=google` or `?SOURCE=google`.
+- **Query parameter values** preserve original case.
+
+**Reserved Placeholders:**
+- `{route}` is a reserved placeholder that auto-populates with the route ID (URL-encoded). User-defined parameters named `route` will be overwritten.
+
+**Reserved paths:** `/favicon.ico` is reserved for browser requests. Route IDs like `favicon` can be used safely via query-parameter routing (e.g., `/?r=favicon`).
+
+### Query Parameter Passthrough
+
+When `passthrough` is enabled, query parameters from the source URL (like UTM tags, tracking parameters, etc.) are automatically appended to the destination URL. This is useful for preserving marketing campaign data and analytics during redirects.
+
+**Behavior:**
+- Destination template params take precedence; source params are appended only if the key is not already present
+- The `route_param` (e.g., `r`) and reserved `{route}` placeholder are excluded from passthrough
+- For pattern routes: params declared in the pattern are excluded (e.g., `lang` in `product/{id}?lang={lang}`)
+- Passthrough is **opt-in** (off by default)
+
+**Examples:**
+
+Simple route with passthrough:
+- Route: `shop` (passthrough: true)
+- Source: `/shop?utm_source=email&ref=partner`
+- Destination: `https://example.com/shop`
+- Result: `https://example.com/shop?utm_source=email&ref=partner`
+
+Pattern route with passthrough:
+- Route: `product/{id}?lang={lang}` (passthrough: true)
+- Source: `/product/123?lang=en&utm_source=email&ref=partner`
+- Destination: `https://example.com/product/{id}?lang={lang}`
+- Excluded: `id`, `lang`, `route` (pattern params + reserved)
+- Result: `https://example.com/product/123?lang=en&utm_source=email&ref=partner`
 
 ### Global Settings
 
@@ -347,7 +415,8 @@ npm run import:routes /path/to/my-routes.json
   "routes": {
     "my-route": {
       "template": "https://example.com/product/{id}",
-      "active": true
+      "active": true,
+      "passthrough": true
     },
     "another-route": {
       "template": "https://partner.com/{category}/{id}?ref={route}",
@@ -367,6 +436,7 @@ npm run import:routes /path/to/my-routes.json
 | `routes` | Yes | Object of route ID → config |
 | `routes.*.template` | Yes | Target URL with `{placeholders}` |
 | `routes.*.active` | Yes | Enable/disable route |
+| `routes.*.passthrough` | No | Pass through query parameters (default: false) |
 | `settings` | No | Global settings (uses defaults if omitted) |
 
 > **Note:** The script reads KV namespace ID from `wrangler.production.toml` or `wrangler.toml`.
@@ -473,7 +543,8 @@ services:
       - gr8hopper-data:/app/data
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))" ]
+      # Check "/" instead of "/health" since /health was removed to avoid shadowing user routes
+      test: [ "CMD", "node", "-e", "fetch('http://localhost:3000/').then(r => process.exit(r.status >= 500 ? 1 : 0)).catch(() => process.exit(1))" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -599,11 +670,27 @@ bun install
 ADMIN_USERNAME=your-username ADMIN_PASSWORD=your-password bun run src/server.ts
 ```
 
+## Upgrading
+
+### From versions before 1.4.0
+
+**Sanitizer behavior change:** Route IDs now support pattern characters (`/`, `{`, `}`, `*`, `.`, `:`, `?`, `&`, `=`). Previously, these characters were stripped (e.g., `shop.items` became `shopitems`). After upgrading:
+- Existing simple routes continue to work unchanged
+- If you had routes with stripped characters, verify they still resolve correctly
+- Pattern routes (e.g., `shop/{id}`) are now fully supported
+
+**Backslash sanitization:** Route IDs containing backslashes (`\`) are stripped for security hardening. If you have routes like `legacy\path`, they will become `legacypath` after upgrade.
+
+**Health endpoint removed:** The `/health` path no longer shadows user routes. If you relied on `/health` for health checks, use your platform's native health check (Cloudflare Workers provide this automatically) or add a dedicated route.
+
+> [!IMPORTANT]
+> **Query Parameter Passthrough precedence inverted:** For routes with `passthrough: true`, destination template params now take precedence over source params. Source params are appended only if the key is not already present in the template. Audit your `passthrough: true` routes if you relied on source params overriding template values.
+
 ## Security
 
 - Admin endpoints require HTTP Basic Authentication
 - All traffic should use HTTPS (Cloudflare enforces this; for VPS, use a reverse proxy)
-- Route IDs are sanitized to lowercase alphanumeric + hyphens only
+- Route IDs are sanitized to lowercase and allow pattern characters (`/`, `{`, `}`, `*`, `.`, `:`, `?`, `&`, `=`, `-`)
 - Destination URLs enforced to use HTTPS
 - Template URLs validated to block dangerous schemes (javascript:, data:, etc.)
 - No user data is stored; the service is stateless
@@ -656,6 +743,10 @@ gr8hopper is designed to be a **high-performance router**, not a marketing analy
 ### Propagation & Caching
 - **KV Consistency**: When using Cloudflare Workers, changes in the Admin UI may take up to **60 seconds** to propagate globally across all edge locations.
 - **Browser Caching**: By default, gr8hopper sends `301 Moved Permanently`. Browsers cache these aggressively. For testing, use Incognito mode or a tool like `curl`.
+- **Fallback Caching**: Unmatched routes (fallback redirects) are cached for a maximum of 30 minutes, even if your `cache_ttl` is longer. This allows newly created routes to take effect without waiting for the full cache expiry.
+
+### Concurrent Admin Edits
+When using Cloudflare Workers, if two admins update pattern routes simultaneously, one update may be lost. This is a known limitation of KV's eventual consistency model. For high-traffic admin scenarios, consider serializing edits or using the import/export feature for batch updates.
 
 ## License
 

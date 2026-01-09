@@ -3,6 +3,7 @@ import { dirname } from 'node:path'
 import type { StorageAdapter } from './adapter.js'
 import { DEFAULT_SETTINGS } from './adapter.js'
 import type { RouteConfig, GlobalSettings, StoredRoute, ConfigFile } from '../types.js'
+import { isPattern } from '../utils/pattern.js'
 
 /**
  * JSON file storage adapter for VPS deployment
@@ -64,6 +65,17 @@ export class JsonFileAdapter implements StorageAdapter {
       ...config,
       id
     }))
+    return routes
+  }
+
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async getPatternRoutes(): Promise<StoredRoute[]> {
+    const routes = Object.entries(this.data.routes)
+      .filter(([id]) => isPattern(id))
+      .map(([id, config]) => ({
+        ...config,
+        id
+      }))
     return routes
   }
 

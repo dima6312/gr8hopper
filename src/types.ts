@@ -6,6 +6,8 @@ export interface RouteConfig {
   template: string
   /** Whether this route is active */
   active: boolean
+  /** Whether to pass through query parameters from source URL (default: false) */
+  passthrough?: boolean
 }
 
 /**
