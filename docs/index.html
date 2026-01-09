@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>gr8hopper Wiki</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+
+  <!-- Standard Themeable CSS (Simple) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify-themeable@0/dist/css/theme-simple.css">
+
+  <style>
+    :root {
+      --theme-color: #42b983;
+    }
+
+    /* Simple Mermaid centering */
+    .mermaid {
+      display: flex;
+      justify-content: center;
+      margin: 1.5rem 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script>
+    window.$docsify = {
+      name: 'gr8hopper',
+      repo: 'dima6312/gr8hopper',
+      auto2top: true,
+      maxLevel: 3,      // Generate sidebar from headers up to level 3
+      subMaxLevel: 4,   // Show sub-headers in the sidebar
+      // Standard Plugins Config
+      search: {
+        maxAge: 86400000,
+        paths: 'auto',
+        placeholder: 'Search wiki...',
+        noData: 'No results!',
+        depth: 6
+      },
+      copyCode: true,
+      pagination: {
+        previousText: 'Previous',
+        nextText: 'Next',
+      }
+    }
+  </script>
+
+  <!-- Standard Docsify + Plugins -->
+  <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify-themeable@0/dist/js/docsify-themeable.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/zoom-image.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify-pagination/dist/docsify-pagination.min.js"></script>
+
+  <!-- Mermaid -->
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({ startOnLoad: true });
+    window.mermaid = mermaid;
+  </script>
+  <script src="//cdn.jsdelivr.net/npm/docsify-mermaid@2/dist/docsify-mermaid.js"></script>
+</body>
+
+</html>
